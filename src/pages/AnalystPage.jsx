@@ -34,8 +34,8 @@ export default function AnalystPage() {
     unit:    '',
     sub:     `Kadar tengah BNM · ${macro?.myr_usd?.date ?? '—'}`,
     tooltip: 'Ringgit yang lebih lemah meningkatkan kos import barangan dan komoditi, menekan harga runcit domestik.',
-    change:  ANALYST.myrUsd.change,
-    trend:   ANALYST.myrUsd.trend,
+    change:  pct(macro?.myr_usd?.change_pct) ?? ANALYST.myrUsd.change,
+    trend:   macro?.myr_usd?.trend ?? ANALYST.myrUsd.trend,
   };
 
   const cpiFood = {
@@ -67,22 +67,29 @@ export default function AnalystPage() {
     trend:   macro?.ppi?.trend ?? ANALYST.ppiManufacturing.trend,
   };
 
+  const b = macro?.brent;
+  const w = macro?.wti;
+
   const MACRO_GRID = [
     {
       label:   'Brent Crude',
-      value:   `USD ${ANALYST.brent.value}`,
+      value:   b ? `USD ${b.value}` : `USD ${ANALYST.brent.value}`,
       unit:    '/bbl',
-      sub:     `Julat 52M: ${ANALYST.brent.wkLow}–${ANALYST.brent.wkHigh}`,
+      sub:     b
+        ? `Julat 52M: ${b.wk_low}–${b.wk_high} · ${b.date}`
+        : `Julat 52M: ${ANALYST.brent.wkLow}–${ANALYST.brent.wkHigh}`,
       tooltip: 'Brent Crude ialah penanda aras harga minyak mentah antarabangsa. Harga minyak Malaysia (RON95, diesel) dikira secara langsung berdasarkan Brent + kos penapisan tempatan.',
-      ...ANALYST.brent,
+      change:  pct(b?.change_pct) ?? ANALYST.brent.change,
+      trend:   b?.trend ?? ANALYST.brent.trend,
     },
     {
       label:   'WTI Crude',
-      value:   `USD ${ANALYST.wti.value}`,
+      value:   w ? `USD ${w.value}` : `USD ${ANALYST.wti.value}`,
       unit:    '/bbl',
-      sub:     'West Texas Intermediate',
+      sub:     w ? `West Texas Intermediate · ${w.date}` : 'West Texas Intermediate',
       tooltip: 'WTI ialah penanda aras minyak mentah Amerika Syarikat, biasanya USD 2–5 lebih murah dari Brent kerana kos pengangkutan yang berbeza.',
-      ...ANALYST.wti,
+      change:  pct(w?.change_pct) ?? ANALYST.wti.change,
+      trend:   w?.trend ?? ANALYST.wti.trend,
     },
     {
       label: 'Import LNG',

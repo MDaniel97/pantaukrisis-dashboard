@@ -13,6 +13,7 @@ import logging
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlencode
 
 import httpx
 import pandas as pd
@@ -28,8 +29,11 @@ DOSM_BASE      = "https://storage.data.gov.my"
 FUEL_URL       = f"{DOSM_BASE}/commodities/fuelprice.parquet"
 SNAPSHOT_PATH  = Path(__file__).parent.parent / "public" / "fuel-snapshot.json"
 
-BNM_EXCHANGE_URL = "https://api.bnm.gov.my/public/exchange-rate"
-DOSM_CATALOGUE   = "https://api.data.gov.my/data-catalogue/"
+BNM_EXCHANGE_URL  = "https://api.bnm.gov.my/public/exchange-rate"
+DOSM_CATALOGUE    = "https://api.data.gov.my/data-catalogue/"
+FRED_DEXMAUS_URL  = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DEXMAUS"
+EIA_SPT_BASE      = "https://api.eia.gov/v2/petroleum/pri/spt/data/"
+EIA_KEY           = "DEMO_KEY"  # register at eia.gov/opendata for a personal key
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,6 +83,47 @@ async def fetch_json(url: str, **kwargs) -> any:
     data = resp.json()
     _json_cache[url] = (data, datetime.now())
     return data
+
+
+async def fetch_fred_myr_usd() -> list[tuple[str, float]]:
+    """Fetch FRED DEXMAUS CSV and return the last 30 valid daily MYR/USD observations."""
+    cache_key = "fred_dexmaus"
+    if cache_key in _json_cache:
+        data, ts = _json_cache[cache_key]
+        if datetime.now() - ts < CACHE_TTL:
+            return data
+    logger.info("fetching FRED DEXMAUS")
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(FRED_DEXMAUS_URL)
+        resp.raise_for_status()
+    valid: list[tuple[str, float]] = []
+    for line in resp.text.strip().split("\n")[1:]:
+        parts = line.strip().split(",")
+        if len(parts) == 2 and parts[1] not in (".", "", " "):
+            try:
+                valid.append((parts[0], float(parts[1])))
+            except ValueError:
+                pass
+    recent = valid[-30:]
+    _json_cache[cache_key] = (recent, datetime.now())
+    return recent
+
+
+async def fetch_eia_oil(length: int = 600) -> list[dict]:
+    """Fetch Brent (RBRTE) and WTI (RWTC) daily spot prices from EIA open data."""
+    params = [
+        ("api_key",           EIA_KEY),
+        ("frequency",         "daily"),
+        ("data[0]",           "value"),
+        ("facets[series][]",  "RBRTE"),
+        ("facets[series][]",  "RWTC"),
+        ("sort[0][column]",   "period"),
+        ("sort[0][direction]","desc"),
+        ("length",            str(length)),
+    ]
+    url = f"{EIA_SPT_BASE}?{urlencode(params)}"
+    data = await fetch_json(url)
+    return data["response"]["data"]
 
 
 def _add_months(date_str: str, months: int) -> str:
@@ -378,7 +423,7 @@ async def macro():
     """Live macro data: MYR/USD (BNM), CPI/PPI/Trade (DOSM data catalogue)."""
     out: dict = {}
 
-    # 1. MYR/USD — Bank Negara Malaysia
+    # 1. MYR/USD — BNM (current rate) + FRED DEXMAUS (historical change)
     try:
         bnm = await fetch_json(
             BNM_EXCHANGE_URL,
@@ -386,11 +431,21 @@ async def macro():
         )
         usd = next((c for c in bnm.get("data", []) if c["currency_code"] == "USD"), None)
         if usd:
+            cur_rate = usd["rate"]["middle_rate"]
+            # Compute MoM change from FRED daily history
+            change_pct = None
+            try:
+                fred = await fetch_fred_myr_usd()
+                if len(fred) >= 22:
+                    mom_base = fred[-22][1]
+                    change_pct = round((cur_rate - mom_base) / mom_base * 100, 2)
+            except Exception as fred_exc:
+                logger.warning("FRED MYR/USD failed: %s", fred_exc)
             out["myr_usd"] = {
-                "value": usd["rate"]["middle_rate"],
-                "change": None,
-                "trend":  "flat",
-                "date":   usd["rate"]["date"],
+                "value":      cur_rate,
+                "change_pct": change_pct,
+                "trend":      _trend(change_pct),
+                "date":       usd["rate"]["date"],
             }
     except Exception as exc:
         logger.warning("BNM fetch failed: %s", exc)
@@ -484,5 +539,50 @@ async def macro():
         }
     except Exception as exc:
         logger.warning("Trade fetch failed: %s", exc)
+
+    # 5. Brent & WTI crude oil — EIA open data (DEMO_KEY)
+    try:
+        rows = await fetch_eia_oil(length=600)
+        # Group by series, descending by period
+        by_series: dict[str, list[dict]] = {}
+        for r in rows:
+            by_series.setdefault(r["series"], []).append(r)
+        # Already desc-sorted; ensure it
+        for s in by_series:
+            by_series[s].sort(key=lambda r: r["period"], reverse=True)
+
+        def _oil_stat(series: str) -> Optional[dict]:
+            pts = by_series.get(series, [])
+            if not pts:
+                return None
+            latest = pts[0]
+            cur_val = float(latest["value"])
+            # WoW: latest point at least 7 calendar days back
+            from datetime import date as date_type
+            latest_d = date_type.fromisoformat(latest["period"])
+            wow_pt = next(
+                (p for p in pts[1:]
+                 if (latest_d - date_type.fromisoformat(p["period"])).days >= 7),
+                None,
+            )
+            wow_pct = round((cur_val - float(wow_pt["value"])) / float(wow_pt["value"]) * 100, 1) \
+                      if wow_pt else None
+            # 52-week high/low from last 260 trading days
+            window = [float(p["value"]) for p in pts[:260]]
+            wk_high = round(max(window), 2) if window else None
+            wk_low  = round(min(window), 2) if window else None
+            return {
+                "value":   cur_val,
+                "change_pct": wow_pct,
+                "trend":   _trend(wow_pct),
+                "wk_high": wk_high,
+                "wk_low":  wk_low,
+                "date":    latest["period"],
+            }
+
+        out["brent"] = _oil_stat("RBRTE")
+        out["wti"]   = _oil_stat("RWTC")
+    except Exception as exc:
+        logger.warning("EIA fetch failed: %s", exc)
 
     return out
