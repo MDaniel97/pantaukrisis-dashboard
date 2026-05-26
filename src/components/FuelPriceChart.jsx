@@ -124,7 +124,7 @@ export default function FuelPriceChart() {
   useEffect(() => {
     setLoading(true);
     setError(false);
-    fetch(`/api/fuel/history?weeks=${weeks}`)
+    fetch(`${__API_URL__}/api/fuel/history?weeks=${weeks}`)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(setData)
       .catch(() => setError(true))

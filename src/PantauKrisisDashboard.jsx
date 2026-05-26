@@ -52,7 +52,7 @@ export default function PantauKrisisDashboard() {
       fetchers.reduce((p, fn) => p.catch(fn), Promise.reject());
 
     const fetchFuel = () => tryInOrder(
-      () => fetch('/api/fuel/latest')
+      () => fetch(`${__API_URL__}/api/fuel/latest`)
               .then(r => r.ok ? r.json() : Promise.reject()),
       () => fetch('https://api.data.gov.my/data-catalogue?id=fuelprice&limit=1&sort=-date')
               .then(r => r.ok ? r.json() : Promise.reject())
@@ -63,7 +63,7 @@ export default function PantauKrisisDashboard() {
 
     Promise.all([
       fetchFuel(),
-      fetch('/api/commodities').then(r => r.ok ? r.json() : Promise.reject(r.status)),
+      fetch(`${__API_URL__}/api/commodities`).then(r => r.ok ? r.json() : Promise.reject(r.status)),
     ])
       .then(([fuelData, commodityData]) => {
         setFuel(mapFuelResponse(fuelData));
@@ -73,7 +73,7 @@ export default function PantauKrisisDashboard() {
       .catch(err => console.warn('API unavailable, using mock data:', err))
       .finally(() => setLoading(false));
 
-    fetch('/api/macro')
+    fetch(`${__API_URL__}/api/macro`)
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setMacro(data); })
       .catch(() => {});

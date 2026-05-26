@@ -156,7 +156,7 @@ export default function AnalystPage() {
   useEffect(() => {
     if (!myrExpanded) return;
     setMyrLoading(true);
-    fetch(`/api/macro/myr-usd/history?days=${myrDays}`)
+    fetch(`${__API_URL__}/api/macro/myr-usd/history?days=${myrDays}`)
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(setMyrHistory)
       .catch(() => setMyrHistory([]))
