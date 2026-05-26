@@ -13,18 +13,8 @@ import InfoTooltip from '../components/InfoTooltip';
 import SourceTag from '../components/SourceTag';
 import StatusLight from '../components/StatusLight';
 import GovernmentActionTicker from '../components/GovernmentActionTicker';
-
-function pct(v, d = 1) {
-  if (v == null) return null;
-  return `${v > 0 ? '+' : ''}${Number(v).toFixed(d)}%`;
-}
-function pp(v) {
-  if (v == null) return null;
-  return `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}pp`;
-}
-function trend(v) {
-  return v == null ? 'flat' : v > 0 ? 'up' : v < 0 ? 'down' : 'flat';
-}
+import { fetchMyrHistory } from '../api';
+import { pct, pp, trend } from '../utils/formatters';
 
 export default function AnalystPage() {
   const { commodities, macro } = useContext(DataContext);
@@ -156,8 +146,7 @@ export default function AnalystPage() {
   useEffect(() => {
     if (!myrExpanded) return;
     setMyrLoading(true);
-    fetch(`${__API_URL__}/api/macro/myr-usd/history?days=${myrDays}`)
-      .then(r => r.ok ? r.json() : Promise.reject())
+    fetchMyrHistory(myrDays)
       .then(setMyrHistory)
       .catch(() => setMyrHistory([]))
       .finally(() => setMyrLoading(false));

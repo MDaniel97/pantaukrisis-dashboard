@@ -8,14 +8,7 @@ import TrendChip from '../components/TrendChip';
 import InfoTooltip from '../components/InfoTooltip';
 import SourceTag from '../components/SourceTag';
 import GovernmentActionTicker from '../components/GovernmentActionTicker';
-
-function pct(v) {
-  if (v == null) return null;
-  return `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}%`;
-}
-function trend(v) {
-  return v == null ? 'flat' : v > 0 ? 'up' : v < 0 ? 'down' : 'flat';
-}
+import { pct, trend } from '../utils/formatters';
 
 export default function SMEPage() {
   const { macro } = useContext(DataContext);

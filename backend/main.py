@@ -188,6 +188,10 @@ def _pct(new: float, old: float) -> Optional[float]:
     return None
 
 
+def _to_float(val) -> Optional[float]:
+    return float(val) if not pd.isna(val) else None
+
+
 async def _latest_pricecatcher() -> pd.DataFrame:
     """Try current month then fall back up to 2 months."""
     today = date.today().replace(day=1)
@@ -216,17 +220,14 @@ async def _write_snapshot():
         df = _fuel_levels(_parse_dates(await fetch_parquet(FUEL_URL)))
         row = df.iloc[-1]
 
-        def f(val):
-            return float(val) if not pd.isna(val) else None
-
         snapshot = {
             "date":             row["date"].strftime("%Y-%m-%d"),
-            "ron95":            f(row["ron95"]),
-            "ron97":            f(row["ron97"]),
-            "diesel":           f(row["diesel"]),
-            "diesel_eastmsia":  f(row["diesel_eastmsia"]),
-            "ron95_skps":       f(row["ron95_skps"]),
-            "ron95_budi95":     f(row["ron95_budi95"]),
+            "ron95":            _to_float(row["ron95"]),
+            "ron97":            _to_float(row["ron97"]),
+            "diesel":           _to_float(row["diesel"]),
+            "diesel_eastmsia":  _to_float(row["diesel_eastmsia"]),
+            "ron95_skps":       _to_float(row["ron95_skps"]),
+            "ron95_budi95":     _to_float(row["ron95_budi95"]),
             "snapshot_at":      datetime.now().isoformat(),
         }
 
@@ -308,23 +309,19 @@ async def fuel_latest(request: Request):
 
     row  = df.iloc[-1]
     prev = df.iloc[-2] if len(df) > 1 else row
-
-    def f(val):
-        return float(val) if not pd.isna(val) else None
-
     fetched_at = _cache.get(url, (None, None))[1]
 
     return {
         "date":              row["date"].strftime("%Y-%m-%d"),
-        "ron95":             f(row["ron95"]),
-        "ron97":             f(row["ron97"]),
-        "diesel":            f(row["diesel"]),
-        "diesel_eastmsia":   f(row["diesel_eastmsia"]),
-        "ron95_skps":        f(row["ron95_skps"]),
-        "ron95_budi95":      f(row["ron95_budi95"]),
+        "ron95":             _to_float(row["ron95"]),
+        "ron97":             _to_float(row["ron97"]),
+        "diesel":            _to_float(row["diesel"]),
+        "diesel_eastmsia":   _to_float(row["diesel_eastmsia"]),
+        "ron95_skps":        _to_float(row["ron95_skps"]),
+        "ron95_budi95":      _to_float(row["ron95_budi95"]),
         "prev_date":         prev["date"].strftime("%Y-%m-%d"),
-        "prev_ron95":        f(prev["ron95"]),
-        "weekly_change_ron95": f(row["ron95"] - prev["ron95"]),
+        "prev_ron95":        _to_float(prev["ron95"]),
+        "weekly_change_ron95": _to_float(row["ron95"] - prev["ron95"]),
         "fetched_at":        fetched_at.isoformat() if fetched_at else None,
     }
 
@@ -421,67 +418,65 @@ async def commodities(request: Request):
     return results
 
 
-# ── Macro ─────────────────────────────────────────────────────────────────────
+# ── Macro helpers ─────────────────────────────────────────────────────────────
 
-@app.get("/api/macro")
-@limiter.limit("20/minute")
-async def macro(request: Request):
-    """Live macro data: MYR/USD (BNM), CPI/PPI/Trade (DOSM data catalogue)."""
-    out: dict = {}
-
-    # 1. MYR/USD — BNM (current rate) + FRED DEXMAUS (historical change)
+async def _macro_myr_usd() -> Optional[dict]:
     try:
         bnm = await fetch_json(
             BNM_EXCHANGE_URL,
             headers={"Accept": "application/vnd.BNM.API.v1+json"},
         )
         usd = next((c for c in bnm.get("data", []) if c["currency_code"] == "USD"), None)
-        if usd:
-            cur_rate = usd["rate"]["middle_rate"]
-            # Compute MoM change from FRED daily history
-            change_pct = None
-            try:
-                fred = await fetch_fred_myr_usd()
-                if len(fred) >= 22:
-                    mom_base = fred[-22][1]
-                    change_pct = round((cur_rate - mom_base) / mom_base * 100, 2)
-            except Exception as fred_exc:
-                logger.warning("FRED MYR/USD failed: %s", fred_exc)
-            out["myr_usd"] = {
-                "value":      cur_rate,
-                "change_pct": change_pct,
-                "trend":      _trend(change_pct),
-                "date":       usd["rate"]["date"],
-            }
+        if not usd:
+            return None
+        cur_rate = usd["rate"]["middle_rate"]
+        change_pct = None
+        try:
+            fred = await fetch_fred_myr_usd()
+            if len(fred) >= 22:
+                mom_base = fred[-22][1]
+                change_pct = round((cur_rate - mom_base) / mom_base * 100, 2)
+        except Exception as exc:
+            logger.warning("FRED MYR/USD failed: %s", exc)
+        return {
+            "value":      cur_rate,
+            "change_pct": change_pct,
+            "trend":      _trend(change_pct),
+            "date":       usd["rate"]["date"],
+        }
     except Exception as exc:
         logger.warning("BNM fetch failed: %s", exc)
+        return None
 
-    # 2. CPI — DOSM cpi_headline catalogue
+
+def _cpi_stat(division: str, by_div: dict) -> Optional[dict]:
+    idx = by_div.get(division, {})
+    if not idx:
+        return None
+    dates = sorted(idx.keys(), reverse=True)
+    d0 = dates[0]
+    def yoy(curr: str, base: str) -> Optional[float]:
+        c, p = idx.get(curr), idx.get(base)
+        return round((c - p) / p * 100, 1) if c and p else None
+    cur_yoy  = yoy(d0, _add_months(d0, -12))
+    prev_yoy = yoy(_add_months(d0, -1), _add_months(d0, -13))
+    chg = round(cur_yoy - prev_yoy, 1) if cur_yoy is not None and prev_yoy is not None else None
+    return {"value": cur_yoy, "change_pp": chg, "trend": _trend(chg), "date": d0}
+
+
+async def _macro_cpi() -> Optional[dict]:
     try:
         rows = await fetch_json(f"{DOSM_CATALOGUE}?id=cpi_headline&limit=500&sort=-date")
         by_div: dict[str, dict[str, float]] = {}
         for r in rows:
             by_div.setdefault(r["division"], {})[r["date"]] = r["index"]
-
-        def _cpi_stat(division: str) -> Optional[dict]:
-            idx = by_div.get(division, {})
-            if not idx:
-                return None
-            dates = sorted(idx.keys(), reverse=True)
-            d0 = dates[0]
-            def yoy(curr: str, base: str) -> Optional[float]:
-                c, p = idx.get(curr), idx.get(base)
-                return round((c - p) / p * 100, 1) if c and p else None
-            cur_yoy  = yoy(d0, _add_months(d0, -12))
-            prev_yoy = yoy(_add_months(d0, -1), _add_months(d0, -13))
-            chg = round(cur_yoy - prev_yoy, 1) if cur_yoy is not None and prev_yoy is not None else None
-            return {"value": cur_yoy, "change_pp": chg, "trend": _trend(chg), "date": d0}
-
-        out["cpi"] = {"overall": _cpi_stat("overall"), "food": _cpi_stat("01")}
+        return {"overall": _cpi_stat("overall", by_div), "food": _cpi_stat("01", by_div)}
     except Exception as exc:
         logger.warning("CPI fetch failed: %s", exc)
+        return None
 
-    # 3. PPI — DOSM ppi catalogue (growth_yoy series)
+
+async def _macro_ppi() -> Optional[dict]:
     try:
         rows = await fetch_json(f"{DOSM_CATALOGUE}?id=ppi&limit=20&sort=-date")
         latest = max(r["date"] for r in rows)
@@ -490,7 +485,7 @@ async def macro(request: Request):
         yoy_cur  = by_ds.get((latest, "growth_yoy"), {}).get("index")
         yoy_prev = by_ds.get((prev,   "growth_yoy"), {}).get("index")
         chg = round(yoy_cur - yoy_prev, 1) if yoy_cur is not None and yoy_prev is not None else None
-        out["ppi"] = {
+        return {
             "value":     round(yoy_cur, 1) if yoy_cur is not None else None,
             "change_pp": chg,
             "trend":     _trend(chg),
@@ -498,17 +493,17 @@ async def macro(request: Request):
         }
     except Exception as exc:
         logger.warning("PPI fetch failed: %s", exc)
+        return None
 
-    # 4. Trade — DOSM trade_headline catalogue
+
+async def _macro_trade() -> Optional[dict]:
     try:
-        rows = await fetch_json(f"{DOSM_CATALOGUE}?id=trade_headline&limit=200&sort=-date")
+        rows   = await fetch_json(f"{DOSM_CATALOGUE}?id=trade_headline&limit=200&sort=-date")
         latest = max(r["date"] for r in rows)
         by_ds  = {(r["date"], r["series"]): r for r in rows}
         abs_r  = by_ds.get((latest, "abs"), {})
         yoy_r  = by_ds.get((latest, "growth_yoy"), {})
-
-        def b(x):
-            return round(float(x) / 1e9, 1) if x is not None else None
+        b = lambda x: round(float(x) / 1e9, 1) if x is not None else None
 
         year = latest[:4]
         ytd_abs = [by_ds[(d, "abs")] for d in {r["date"] for r in rows}
@@ -517,80 +512,94 @@ async def macro(request: Request):
         ytd_imp = round(sum(r["imports"] for r in ytd_abs) / 1e9, 1) if ytd_abs else None
         ytd_bal = round(sum(r["balance"] for r in ytd_abs) / 1e9, 1) if ytd_abs else None
 
-        prev_year = str(int(year) - 1)
-        ytd_months = {d for d in {r["date"] for r in rows} if d.startswith(year)}
+        prev_year    = str(int(year) - 1)
+        ytd_months   = {d for d in {r["date"] for r in rows} if d.startswith(year)}
         prev_ytd_abs = [by_ds[(d.replace(year, prev_year), "abs")]
                         for d in ytd_months
                         if (d.replace(year, prev_year), "abs") in by_ds]
         prev_ytd_exp = sum(r["exports"] for r in prev_ytd_abs) / 1e9 if prev_ytd_abs else None
         prev_ytd_imp = sum(r["imports"] for r in prev_ytd_abs) / 1e9 if prev_ytd_abs else None
-        ytd_exp_yoy = round((ytd_exp - prev_ytd_exp) / prev_ytd_exp * 100, 1) if ytd_exp and prev_ytd_exp else None
-        ytd_imp_yoy = round((ytd_imp - prev_ytd_imp) / prev_ytd_imp * 100, 1) if ytd_imp and prev_ytd_imp else None
+        ytd_exp_yoy  = round((ytd_exp - prev_ytd_exp) / prev_ytd_exp * 100, 1) if ytd_exp and prev_ytd_exp else None
+        ytd_imp_yoy  = round((ytd_imp - prev_ytd_imp) / prev_ytd_imp * 100, 1) if ytd_imp and prev_ytd_imp else None
 
-        month_label = datetime.strptime(latest, "%Y-%m-%d").strftime("%b %Y")
-        out["trade"] = {
-            "date":         latest,
-            "month_label":  month_label,
-            "exports":      b(abs_r.get("exports")),
-            "imports":      b(abs_r.get("imports")),
-            "balance":      b(abs_r.get("balance")),
-            "exports_yoy":  yoy_r.get("exports"),
-            "imports_yoy":  yoy_r.get("imports"),
-            "balance_yoy":  yoy_r.get("balance"),
-            "ytd_exports":  ytd_exp,
-            "ytd_imports":  ytd_imp,
-            "ytd_balance":  ytd_bal,
-            "ytd_exp_yoy":  ytd_exp_yoy,
-            "ytd_imp_yoy":  ytd_imp_yoy,
+        return {
+            "date":        latest,
+            "month_label": datetime.strptime(latest, "%Y-%m-%d").strftime("%b %Y"),
+            "exports":     b(abs_r.get("exports")),
+            "imports":     b(abs_r.get("imports")),
+            "balance":     b(abs_r.get("balance")),
+            "exports_yoy": yoy_r.get("exports"),
+            "imports_yoy": yoy_r.get("imports"),
+            "balance_yoy": yoy_r.get("balance"),
+            "ytd_exports": ytd_exp,
+            "ytd_imports": ytd_imp,
+            "ytd_balance": ytd_bal,
+            "ytd_exp_yoy": ytd_exp_yoy,
+            "ytd_imp_yoy": ytd_imp_yoy,
         }
     except Exception as exc:
         logger.warning("Trade fetch failed: %s", exc)
+        return None
 
-    # 5. Brent & WTI crude oil — EIA open data (DEMO_KEY)
+
+def _oil_stat(series: str, by_series: dict) -> Optional[dict]:
+    pts = by_series.get(series, [])
+    if not pts:
+        return None
+    latest  = pts[0]
+    cur_val = float(latest["value"])
+    latest_d = date.fromisoformat(latest["period"])
+    wow_pt = next(
+        (p for p in pts[1:]
+         if (latest_d - date.fromisoformat(p["period"])).days >= 7),
+        None,
+    )
+    wow_pct = round((cur_val - float(wow_pt["value"])) / float(wow_pt["value"]) * 100, 1) \
+              if wow_pt else None
+    window  = [float(p["value"]) for p in pts[:260]]
+    return {
+        "value":      cur_val,
+        "change_pct": wow_pct,
+        "trend":      _trend(wow_pct),
+        "wk_high":    round(max(window), 2) if window else None,
+        "wk_low":     round(min(window), 2) if window else None,
+        "date":       latest["period"],
+    }
+
+
+async def _macro_oil() -> Optional[dict]:
     try:
-        rows = await fetch_eia_oil(length=600)
-        # Group by series, descending by period
+        rows      = await fetch_eia_oil(length=600)
         by_series: dict[str, list[dict]] = {}
         for r in rows:
             by_series.setdefault(r["series"], []).append(r)
-        # Already desc-sorted; ensure it
         for s in by_series:
             by_series[s].sort(key=lambda r: r["period"], reverse=True)
-
-        def _oil_stat(series: str) -> Optional[dict]:
-            pts = by_series.get(series, [])
-            if not pts:
-                return None
-            latest = pts[0]
-            cur_val = float(latest["value"])
-            # WoW: latest point at least 7 calendar days back
-            from datetime import date as date_type
-            latest_d = date_type.fromisoformat(latest["period"])
-            wow_pt = next(
-                (p for p in pts[1:]
-                 if (latest_d - date_type.fromisoformat(p["period"])).days >= 7),
-                None,
-            )
-            wow_pct = round((cur_val - float(wow_pt["value"])) / float(wow_pt["value"]) * 100, 1) \
-                      if wow_pt else None
-            # 52-week high/low from last 260 trading days
-            window = [float(p["value"]) for p in pts[:260]]
-            wk_high = round(max(window), 2) if window else None
-            wk_low  = round(min(window), 2) if window else None
-            return {
-                "value":   cur_val,
-                "change_pct": wow_pct,
-                "trend":   _trend(wow_pct),
-                "wk_high": wk_high,
-                "wk_low":  wk_low,
-                "date":    latest["period"],
-            }
-
-        out["brent"] = _oil_stat("RBRTE")
-        out["wti"]   = _oil_stat("RWTC")
+        return {
+            "brent": _oil_stat("RBRTE", by_series),
+            "wti":   _oil_stat("RWTC",  by_series),
+        }
     except Exception as exc:
         logger.warning("EIA fetch failed: %s", exc)
+        return None
 
+
+# ── Macro route ───────────────────────────────────────────────────────────────
+
+@app.get("/api/macro")
+@limiter.limit("20/minute")
+async def macro(request: Request):
+    """Live macro data: MYR/USD (BNM), CPI/PPI/Trade (DOSM), Brent/WTI (EIA)."""
+    myr_usd, cpi, ppi, trade, oil = await asyncio.gather(
+        _macro_myr_usd(), _macro_cpi(), _macro_ppi(), _macro_trade(), _macro_oil(),
+        return_exceptions=True,
+    )
+    out: dict = {}
+    if myr_usd and not isinstance(myr_usd, Exception): out["myr_usd"] = myr_usd
+    if cpi      and not isinstance(cpi,    Exception): out["cpi"]     = cpi
+    if ppi      and not isinstance(ppi,    Exception): out["ppi"]     = ppi
+    if trade    and not isinstance(trade,  Exception): out["trade"]   = trade
+    if oil      and not isinstance(oil,    Exception): out.update(oil)
     return out
 
 

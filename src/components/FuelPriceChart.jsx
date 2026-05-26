@@ -7,6 +7,7 @@ import { TrendingUp, RefreshCw } from 'lucide-react';
 import Card from './Card';
 import SectionTitle from './SectionTitle';
 import SourceTag from './SourceTag';
+import { fetchFuelHistory } from '../api';
 
 const PERIODS = [
   { label: '4M',  weeks: 4  },
@@ -124,8 +125,7 @@ export default function FuelPriceChart() {
   useEffect(() => {
     setLoading(true);
     setError(false);
-    fetch(`${__API_URL__}/api/fuel/history?weeks=${weeks}`)
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    fetchFuelHistory(weeks)
       .then(setData)
       .catch(() => setError(true))
       .finally(() => setLoading(false));

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Activity, RefreshCw, User, Building2, BarChart3, BookOpen } from 'lucide-react';
 import { DataContext } from './context/DataContext';
 import { FUEL, COMMODITIES, mapFuelResponse, mapCommoditiesResponse } from './data/constants';
+import { fetchFuelLatest, fetchCommodities, fetchMacro } from './api';
 import RakyatPage from './pages/RakyatPage';
 import SMEPage from './pages/SMEPage';
 import AnalystPage from './pages/AnalystPage';
@@ -52,8 +53,7 @@ export default function PantauKrisisDashboard() {
       fetchers.reduce((p, fn) => p.catch(fn), Promise.reject());
 
     const fetchFuel = () => tryInOrder(
-      () => fetch(`${__API_URL__}/api/fuel/latest`)
-              .then(r => r.ok ? r.json() : Promise.reject()),
+      () => fetchFuelLatest(),
       () => fetch('https://api.data.gov.my/data-catalogue?id=fuelprice&limit=1&sort=-date')
               .then(r => r.ok ? r.json() : Promise.reject())
               .then(rows => rows[0]),
@@ -63,7 +63,7 @@ export default function PantauKrisisDashboard() {
 
     Promise.all([
       fetchFuel(),
-      fetch(`${__API_URL__}/api/commodities`).then(r => r.ok ? r.json() : Promise.reject(r.status)),
+      fetchCommodities(),
     ])
       .then(([fuelData, commodityData]) => {
         setFuel(mapFuelResponse(fuelData));
@@ -73,8 +73,7 @@ export default function PantauKrisisDashboard() {
       .catch(err => console.warn('API unavailable, using mock data:', err))
       .finally(() => setLoading(false));
 
-    fetch(`${__API_URL__}/api/macro`)
-      .then(r => r.ok ? r.json() : null)
+    fetchMacro()
       .then(data => { if (data) setMacro(data); })
       .catch(() => {});
   }, []);
