@@ -45,7 +45,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:3000",
         # GitHub Pages
-        "https://dendaniel97.github.io",
+        "https://mdaniel97.github.io",
         # Add custom domain here if you set one up later
         *_EXTRA_ORIGINS,
     ],
