@@ -10,6 +10,7 @@ import asyncio
 import io
 import json
 import logging
+import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -17,14 +18,42 @@ from urllib.parse import urlencode
 
 import httpx
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from starlette.middleware.base import BaseHTTPMiddleware
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="PantauKrisis API", version="1.0.0")
+# ── Rate limiter ──────────────────────────────────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 
+app = FastAPI(
+    title="PantauKrisis API",
+    version="1.0.0",
+    docs_url=None,
+    redoc_url=None,
+)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── Security headers ──────────────────────────────────────────────────────────
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"]   = "nosniff"
+        response.headers["X-Frame-Options"]           = "DENY"
+        response.headers["Referrer-Policy"]           = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"]        = "geolocation=(), camera=(), microphone=()"
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# ── Constants ─────────────────────────────────────────────────────────────────
 DOSM_BASE      = "https://storage.data.gov.my"
 FUEL_URL       = f"{DOSM_BASE}/commodities/fuelprice.parquet"
 SNAPSHOT_PATH  = Path(__file__).parent.parent / "public" / "fuel-snapshot.json"
@@ -33,9 +62,7 @@ BNM_EXCHANGE_URL  = "https://api.bnm.gov.my/public/exchange-rate"
 DOSM_CATALOGUE    = "https://api.data.gov.my/data-catalogue/"
 FRED_DEXMAUS_URL  = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DEXMAUS"
 EIA_SPT_BASE      = "https://api.eia.gov/v2/petroleum/pri/spt/data/"
-EIA_KEY           = "DEMO_KEY"  # register at eia.gov/opendata for a personal key
-
-import os
+EIA_KEY           = os.getenv("EIA_API_KEY", "DEMO_KEY")
 
 _EXTRA_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 
@@ -44,9 +71,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:3000",
-        # GitHub Pages
         "https://mdaniel97.github.io",
-        # Add custom domain here if you set one up later
         *_EXTRA_ORIGINS,
     ],
     allow_methods=["GET"],
@@ -250,9 +275,9 @@ async def startup():
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/health")
-async def health():
-    cached = {url: ts.isoformat() for url, (_, ts) in _cache.items()}
-    return {"status": "ok", "timestamp": datetime.now().isoformat(), "cache": cached}
+@limiter.limit("10/minute")
+async def health(request: Request):
+    return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
 
 # ── Fuel ─────────────────────────────────────────────────────────────────────
@@ -263,7 +288,8 @@ def _fuel_levels(df: pd.DataFrame) -> pd.DataFrame:
 
 
 @app.get("/api/fuel/latest")
-async def fuel_latest():
+@limiter.limit("30/minute")
+async def fuel_latest(request: Request):
     """
     Latest weekly retail prices.
     Columns in DOSM data:
@@ -304,7 +330,8 @@ async def fuel_latest():
 
 
 @app.get("/api/fuel/history")
-async def fuel_history(weeks: int = Query(12, ge=1, le=104)):
+@limiter.limit("20/minute")
+async def fuel_history(request: Request, weeks: int = Query(12, ge=1, le=104)):
     """Weekly price history (level rows only) for the last N weeks."""
     url = f"{DOSM_BASE}/commodities/fuelprice.parquet"
     try:
@@ -338,7 +365,8 @@ ITEM_EMOJI: dict[str, str] = {
 
 
 @app.get("/api/commodities")
-async def commodities():
+@limiter.limit("20/minute")
+async def commodities(request: Request):
     """
     Median retail prices per commodity for the latest available month
     versus the prior month, with MoM % change.
@@ -393,44 +421,11 @@ async def commodities():
     return results
 
 
-@app.get("/api/commodities/lookup")
-async def commodities_lookup():
-    """Full item lookup table from DOSM pricecatcher."""
-    try:
-        df = await fetch_parquet(f"{DOSM_BASE}/commodities/lookup_item.parquet")
-    except httpx.HTTPError as e:
-        raise HTTPException(502, f"DOSM upstream: {e}")
-    return df.to_dict(orient="records")
-
-
-@app.get("/api/commodities/raw")
-async def commodities_raw(month: Optional[str] = Query(None, description="YYYY-MM, defaults to latest")):
-    """
-    Raw pricecatcher data for a given month.
-    Useful for exploring the schema before mapping item codes.
-    """
-    if month:
-        url = f"{DOSM_BASE}/commodities/pricecatcher_{month}.parquet"
-        try:
-            df = _parse_dates(await fetch_parquet(url))
-        except httpx.HTTPError as e:
-            raise HTTPException(502, f"DOSM upstream: {e}")
-    else:
-        df = _parse_dates(await _latest_pricecatcher())
-
-    df["date"] = df["date"].dt.strftime("%Y-%m-%d")
-    return {
-        "month": month or df["date"].max(),
-        "rows": len(df),
-        "columns": list(df.columns),
-        "sample": df.head(20).to_dict(orient="records"),
-    }
-
-
 # ── Macro ─────────────────────────────────────────────────────────────────────
 
 @app.get("/api/macro")
-async def macro():
+@limiter.limit("20/minute")
+async def macro(request: Request):
     """Live macro data: MYR/USD (BNM), CPI/PPI/Trade (DOSM data catalogue)."""
     out: dict = {}
 
@@ -600,7 +595,8 @@ async def macro():
 
 
 @app.get("/api/macro/myr-usd/history")
-async def myr_usd_history(days: int = Query(90, ge=7, le=365)):
+@limiter.limit("20/minute")
+async def myr_usd_history(request: Request, days: int = Query(90, ge=7, le=365)):
     """MYR/USD daily history from FRED DEXMAUS (excludes weekends/holidays)."""
     cache_key = "fred_dexmaus_full"
     cached = _json_cache.get(cache_key)

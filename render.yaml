@@ -11,3 +11,5 @@ services:
         value: https://mdaniel97.github.io
       - key: PYTHON_VERSION
         value: "3.11"
+      - key: EIA_API_KEY
+        sync: false
