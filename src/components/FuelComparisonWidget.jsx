@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { Fuel, Shield, Globe, RefreshCw } from 'lucide-react';
+import { Fuel, Shield, RefreshCw } from 'lucide-react';
 import { DataContext } from '../context/DataContext';
 import Card from './Card';
 import SectionTitle from './SectionTitle';
@@ -43,10 +43,6 @@ export default function FuelComparisonWidget() {
             RM {fuel.marketRON95.toFixed(2)}
           </div>
           <div className="text-xs text-rose-600 mt-1">per liter</div>
-          <div className="mt-3 flex items-center gap-1.5 text-xs text-rose-500">
-            <Globe size={11} className="shrink-0" />
-            <span>Brent: USD {fuel.brentUSD}/bbl</span>
-          </div>
         </div>
       </div>
 

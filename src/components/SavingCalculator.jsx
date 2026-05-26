@@ -4,6 +4,7 @@ import { DataContext } from '../context/DataContext';
 import { CALC_CATEGORIES } from '../data/constants';
 import Card from './Card';
 import SectionTitle from './SectionTitle';
+import SourceTag from './SourceTag';
 
 const FILL_MONTH = 4;
 const DEFAULT_RM = 50;
@@ -120,6 +121,10 @@ export default function SavingCalculator() {
           </div>
         </div>
 
+      </div>
+
+      <div className="mt-3 flex justify-end">
+        <SourceTag label="DOSM Fuel Price" href="https://data.gov.my/data-catalogue/fuelprice" />
       </div>
     </Card>
   );

@@ -124,7 +124,6 @@ export default function CommodityTrafficLight() {
         </div>
         <div className="flex items-center gap-3">
           <SourceTag label="DOSM PriceCatcher" href="https://data.gov.my/data-catalogue/pricecatcher" />
-          <SourceTag label="KPDNHEP" href="https://www.kpdn.gov.my" />
         </div>
       </div>
     </Card>

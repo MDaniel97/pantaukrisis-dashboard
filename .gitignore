@@ -6,3 +6,6 @@ dist
 __pycache__/
 *.pyc
 backend/venv/
+.claude/
+.claude.md
+CLAUDE.md

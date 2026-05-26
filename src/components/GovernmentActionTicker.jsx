@@ -1,4 +1,4 @@
-import { Shield, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Shield, AlertTriangle } from 'lucide-react';
 import { GOVT_ACTIONS } from '../data/constants';
 import Card from './Card';
 
@@ -45,14 +45,9 @@ export default function GovernmentActionTicker({ limit }) {
             <div className={`flex-1 rounded-xl border p-4 ${TRIGGER_STYLE[item.triggerLevel] || TRIGGER_STYLE.medium}`}>
               <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
                 <div className="flex items-center gap-2 text-xs">
-                  <a
-                    href={item.ministryUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-bold text-slate-200 hover:text-blue-400 transition-colors inline-flex items-center gap-0.5"
-                  >
-                    {item.ministry}<ExternalLink size={9} className="opacity-60" />
-                  </a>
+                  <span className="font-bold text-slate-200">
+                    {item.ministry}
+                  </span>
                   <span className="text-slate-600">·</span>
                   <span className="text-slate-500">{item.date}</span>
                 </div>

@@ -28,30 +28,35 @@ export default function SMEPage() {
       value:  t?.exports != null ? `RM ${t.exports}B` : `RM ${SME.exportApr.value}B`,
       change: pct(t?.exports_yoy) ?? SME.exportApr.change,
       trend:  trend(t?.exports_yoy) ?? SME.exportApr.trend,
+      source: { label: 'DOSM', href: 'https://data.gov.my/data-catalogue/trade_headline' },
     },
     {
       label:  `Import (${monthLabel})`,
       value:  t?.imports != null ? `RM ${t.imports}B` : `RM ${SME.importApr.value}B`,
       change: pct(t?.imports_yoy) ?? SME.importApr.change,
       trend:  trend(t?.imports_yoy) ?? SME.importApr.trend,
+      source: { label: 'DOSM', href: 'https://data.gov.my/data-catalogue/trade_headline' },
     },
     {
       label:  'Imbangan Dagangan',
       value:  t?.balance != null ? `+RM ${t.balance}B` : `+RM ${SME.tradeBalance.value}B`,
       change: pct(t?.balance_yoy) ?? SME.tradeBalance.change,
       trend:  trend(t?.balance_yoy) ?? SME.tradeBalance.trend,
+      source: { label: 'DOSM', href: 'https://data.gov.my/data-catalogue/trade_headline' },
     },
     {
       label:  'Diesel Industri',
       value:  `RM ${SME.dieselIndustrial.value}/L`,
       change: SME.dieselIndustrial.change,
       trend:  SME.dieselIndustrial.trend,
+      source: { label: 'DOSM', href: 'https://data.gov.my/data-catalogue/fuelprice' },
     },
     {
       label:  'Harga CPO',
       value:  `RM ${SME.cpo.value}/MT`,
       change: SME.cpo.change,
       trend:  SME.cpo.trend,
+      source: { label: 'MPOB', href: 'https://bepi.mpob.gov.my' },
     },
     {
       label:   'Indeks Fret (Drewry WCI)',
@@ -59,6 +64,7 @@ export default function SMEPage() {
       tooltip: 'Drewry World Container Index (WCI) mengukur kos penghantaran kontena global. Nilai lebih tinggi bermakna kos logistik yang lebih mahal untuk pengimport dan pengeksport Malaysia.',
       change:  SME.freightWCI.change,
       trend:   SME.freightWCI.trend,
+      source:  { label: 'Drewry WCI', href: 'https://www.drewry.co.uk/supply-chain-advisors/supply-chain-expertise/world-container-index-assessed-by-drewry' },
     },
   ];
 
@@ -73,10 +79,6 @@ export default function SMEPage() {
           title="Metrik Perdagangan & Logistik"
           sub={`Data terkini DOSM & Drewry — ${monthLabel}`}
         />
-        <div className="flex gap-3 mb-4">
-          <SourceTag label="DOSM" href="https://data.gov.my" />
-          <SourceTag label="Drewry WCI" href="https://www.drewry.co.uk/supply-chain-advisors/supply-chain-expertise/world-container-index-assessed-by-drewry" />
-        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {tradeMetrics.map(m => (
             <div key={m.label} className="bg-slate-700/50 rounded-xl p-3.5">
@@ -88,6 +90,11 @@ export default function SMEPage() {
               <div className="mt-2">
                 <TrendChip change={m.change} trend={m.trend} />
               </div>
+              {m.source && (
+                <div className="mt-2">
+                  <SourceTag label={m.source.label} href={m.source.href} />
+                </div>
+              )}
             </div>
           ))}
         </div>

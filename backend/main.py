@@ -35,9 +35,20 @@ FRED_DEXMAUS_URL  = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DEXMAUS"
 EIA_SPT_BASE      = "https://api.eia.gov/v2/petroleum/pri/spt/data/"
 EIA_KEY           = "DEMO_KEY"  # register at eia.gov/opendata for a personal key
 
+import os
+
+_EXTRA_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        # GitHub Pages
+        "https://dendaniel97.github.io",
+        # Add custom domain here if you set one up later
+        *_EXTRA_ORIGINS,
+    ],
     allow_methods=["GET"],
     allow_headers=["*"],
 )
@@ -586,3 +597,31 @@ async def macro():
         logger.warning("EIA fetch failed: %s", exc)
 
     return out
+
+
+@app.get("/api/macro/myr-usd/history")
+async def myr_usd_history(days: int = Query(90, ge=7, le=365)):
+    """MYR/USD daily history from FRED DEXMAUS (excludes weekends/holidays)."""
+    cache_key = "fred_dexmaus_full"
+    cached = _json_cache.get(cache_key)
+    if cached:
+        data, ts = cached
+        if datetime.now() - ts < CACHE_TTL:
+            return data[-days:]
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(FRED_DEXMAUS_URL)
+            resp.raise_for_status()
+        rows = []
+        for line in resp.text.strip().split("\n")[1:]:
+            parts = line.strip().split(",")
+            if len(parts) == 2 and parts[1] not in (".", "", " "):
+                try:
+                    rows.append({"date": parts[0], "value": float(parts[1])})
+                except ValueError:
+                    pass
+        _json_cache[cache_key] = (rows, datetime.now())
+        return rows[-days:]
+    except Exception as exc:
+        raise HTTPException(502, f"FRED fetch failed: {exc}")

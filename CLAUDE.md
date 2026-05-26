@@ -4,24 +4,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Running the project
 
-Two servers must run simultaneously:
+**Prerequisites:** Node.js (frontend), Python 3.13+ (backend).
 
-**Frontend** (Vite + React, port 5173):
+Two servers must run simultaneously — open two terminal tabs:
+
+**Terminal 1 — Backend** (FastAPI, port 8000):
+```bash
+cd backend
+./venv/bin/uvicorn main:app --reload --port 8000
+```
+API: http://localhost:8000 · Docs: http://localhost:8000/docs
+
+**Terminal 2 — Frontend** (Vite + React, port 5173):
 ```bash
 npm run dev
 ```
-
-**Backend** (FastAPI, port 8000):
-```bash
-cd backend && ./venv/bin/uvicorn main:app --reload --port 8000
-```
+App: http://localhost:5173
 
 The frontend proxies all `/api/*` requests to the backend via Vite's `server.proxy` config in `vite.config.js`. There is no CORS issue in dev because of this proxy — CORS is only relevant in production.
 
-**Install dependencies:**
+### First-time setup
+
 ```bash
-npm install                                        # frontend
-cd backend && ./venv/bin/pip install -r requirements.txt  # backend
+npm install                                              # frontend deps
+cd backend && python3 -m venv venv                       # create venv (once)
+cd backend && ./venv/bin/pip install -r requirements.txt # backend deps
 ```
 
 > Use `./venv/bin/pip` and `./venv/bin/uvicorn` — Homebrew Python 3.13 blocks system pip.

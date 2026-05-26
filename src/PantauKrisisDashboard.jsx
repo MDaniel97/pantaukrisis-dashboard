@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Activity, RefreshCw, User, Building2, BarChart3 } from 'lucide-react';
+import { Activity, RefreshCw, User, Building2, BarChart3, BookOpen } from 'lucide-react';
 import { DataContext } from './context/DataContext';
 import { FUEL, COMMODITIES, mapFuelResponse, mapCommoditiesResponse } from './data/constants';
 import RakyatPage from './pages/RakyatPage';
 import SMEPage from './pages/SMEPage';
 import AnalystPage from './pages/AnalystPage';
+import MethodologyPage from './pages/MethodologyPage';
 import SourceTag from './components/SourceTag';
 
 const PERSONAS = [
@@ -28,6 +29,13 @@ const PERSONAS = [
     sublabel: 'Pelabur & Media',
     icon:     BarChart3,
     desc:     'Makroekonomi penuh: Brent/WTI, LNG, imbangan dagangan, CPI, & MYR/USD',
+  },
+  {
+    id:       'methodology',
+    label:    'Metodologi',
+    sublabel: 'Sumber & Kaedah',
+    icon:     BookOpen,
+    desc:     'Sumber data, kaedah pengambilan, rantaian sandaran, cache, & endpoint API backend',
   },
 ];
 
@@ -141,9 +149,10 @@ export default function PantauKrisisDashboard() {
         </div>
 
         <main className="max-w-5xl mx-auto px-4 py-6">
-          {activePersona === 'rakyat'  && <RakyatPage />}
-          {activePersona === 'sme'     && <SMEPage />}
-          {activePersona === 'analyst' && <AnalystPage />}
+          {activePersona === 'rakyat'       && <RakyatPage />}
+          {activePersona === 'sme'          && <SMEPage />}
+          {activePersona === 'analyst'      && <AnalystPage />}
+          {activePersona === 'methodology'  && <MethodologyPage />}
         </main>
 
         <footer className="border-t border-slate-800 px-4 py-6 mt-4">
