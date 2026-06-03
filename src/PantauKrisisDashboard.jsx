@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Activity, RefreshCw, User, Building2, BarChart3, BookOpen } from 'lucide-react';
+import { Activity, RefreshCw, User, Building2, BarChart3, BookOpen, Sun, Moon } from 'lucide-react';
 import { DataContext } from './context/DataContext';
+import { useTheme } from './context/ThemeContext';
+import { useLanguage } from './context/LanguageContext';
 import { FUEL, COMMODITIES, mapFuelResponse, mapCommoditiesResponse } from './data/constants';
 import { fetchFuelLatest, fetchCommodities, fetchMacro } from './api';
 import RakyatPage from './pages/RakyatPage';
@@ -9,38 +11,16 @@ import AnalystPage from './pages/AnalystPage';
 import MethodologyPage from './pages/MethodologyPage';
 import SourceTag from './components/SourceTag';
 
-const PERSONAS = [
-  {
-    id:       'rakyat',
-    label:    'Rakyat',
-    sublabel: 'Isi Rumah',
-    icon:     User,
-    desc:     'Harga bahan api, kos sara hidup, kalkulator jimat subsidi, & status barangan asas',
-  },
-  {
-    id:       'sme',
-    label:    'Perniagaan',
-    sublabel: 'PKS & Korporat',
-    icon:     Building2,
-    desc:     'Kos logistik, data perdagangan import/eksport, harga borong komoditi, & skor risiko',
-  },
-  {
-    id:       'analyst',
-    label:    'Penganalisis',
-    sublabel: 'Pelabur & Media',
-    icon:     BarChart3,
-    desc:     'Makroekonomi penuh: Brent/WTI, LNG, imbangan dagangan, CPI, & MYR/USD',
-  },
-  {
-    id:       'methodology',
-    label:    'Metodologi',
-    sublabel: 'Sumber & Kaedah',
-    icon:     BookOpen,
-    desc:     'Sumber data, kaedah pengambilan, rantaian sandaran, cache, & endpoint API backend',
-  },
+const PERSONA_KEYS = [
+  { id: 'rakyat',      icon: User      },
+  { id: 'perniagaan',  icon: Building2 },
+  { id: 'penganalisis',icon: BarChart3 },
+  { id: 'metodologi',  icon: BookOpen  },
 ];
 
 export default function PantauKrisisDashboard() {
+  const { isDark, toggle: toggleTheme } = useTheme();
+  const { lang, toggle: toggleLang, t } = useLanguage();
   const [activePersona, setActivePersona] = useState('rakyat');
   const [fuel, setFuel] = useState(FUEL);
   const [commodities, setCommodities] = useState(COMMODITIES);
@@ -78,45 +58,62 @@ export default function PantauKrisisDashboard() {
       .catch(() => {});
   }, []);
 
-  const persona = PERSONAS.find(p => p.id === activePersona);
-
   return (
     <DataContext.Provider value={{ fuel, commodities, lastUpdated, macro }}>
-      <div className="min-h-screen bg-slate-900 text-white font-sans antialiased">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-sans antialiased">
 
-        <header className="bg-slate-900 border-b border-slate-800 px-4 py-4">
+        <header className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4">
           <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="bg-blue-600 p-2 rounded-xl">
                 <Activity size={20} className="text-white" />
               </div>
               <div>
-                <div className="font-bold text-white text-lg leading-none">PantauKrisis</div>
-                <div className="text-xs text-slate-400 mt-0.5">
-                  Pemantauan Bekalan &amp; Harga Semasa Malaysia
+                <div className="font-bold text-slate-900 dark:text-white text-lg leading-none">PantauKrisis</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {t('app.tagline')}
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-400 shrink-0">
-              <RefreshCw size={11} className={loading ? 'animate-spin text-slate-500' : 'text-emerald-400'} />
-              <span className="text-slate-500">Dikemaskini pada:</span>
-              <span className="text-slate-300">
-                {lastUpdated ? (() => {
-                  const d = new Date(lastUpdated);
-                  return Number.isNaN(d.getTime()) ? lastUpdated : d.toLocaleString('ms-MY', {
-                    day: 'numeric', month: 'short', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit',
-                  });
-                })() : '—'}
-              </span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
+                <RefreshCw size={11} className={loading ? 'animate-spin text-slate-400 dark:text-slate-500' : 'text-emerald-500 dark:text-emerald-400'} />
+                <span className="text-slate-500 dark:text-slate-300">
+                  {lastUpdated ? (() => {
+                    const d = new Date(lastUpdated);
+                    return Number.isNaN(d.getTime()) ? lastUpdated : d.toLocaleString('ms-MY', {
+                      day: 'numeric', month: 'short', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit',
+                    });
+                  })() : '—'}
+                </span>
+              </div>
+              {/* Language toggle */}
+              <button
+                onClick={toggleLang}
+                className="flex items-center gap-0.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
+                aria-label="Toggle language"
+              >
+                <span className={lang === 'bm' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}>BM</span>
+                <span className="text-slate-300 dark:text-slate-600 mx-0.5">/</span>
+                <span className={lang === 'en' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}>EN</span>
+              </button>
+              {/* Theme toggle */}
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label={isDark ? t('nav.rakyat') : t('nav.rakyat')}
+              >
+                {isDark ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
             </div>
           </div>
         </header>
 
-        <div className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-3">
+        <div className="sticky top-0 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3">
           <div className="max-w-5xl mx-auto">
             <div className="flex gap-2">
-              {PERSONAS.map(p => {
+              {PERSONA_KEYS.map(p => {
                 const Icon = p.icon;
                 const active = activePersona === p.id;
                 return (
@@ -126,38 +123,38 @@ export default function PantauKrisisDashboard() {
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       active
                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800'
                     }`}
                   >
                     <Icon size={16} />
                     <div className="text-left hidden sm:block">
-                      <div className="leading-none">{p.label}</div>
-                      <div className={`text-xs mt-0.5 ${active ? 'text-blue-200' : 'text-slate-500'}`}>
-                        {p.sublabel}
+                      <div className="leading-none">{t(`nav.${p.id}`)}</div>
+                      <div className={`text-xs mt-0.5 ${active ? 'text-blue-200' : 'text-slate-400 dark:text-slate-500'}`}>
+                        {t(`nav.${p.id}.sub`)}
                       </div>
                     </div>
-                    <span className="sm:hidden">{p.label}</span>
+                    <span className="sm:hidden">{t(`nav.${p.id}`)}</span>
                   </button>
                 );
               })}
             </div>
-            {persona && (
-              <p className="text-xs text-slate-500 mt-2 hidden sm:block">{persona.desc}</p>
-            )}
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 hidden sm:block">
+              {t(`nav.${activePersona}.desc`)}
+            </p>
           </div>
         </div>
 
         <main className="max-w-5xl mx-auto px-4 py-6">
           {activePersona === 'rakyat'       && <RakyatPage />}
-          {activePersona === 'sme'          && <SMEPage />}
-          {activePersona === 'analyst'      && <AnalystPage />}
-          {activePersona === 'methodology'  && <MethodologyPage />}
+          {activePersona === 'perniagaan'   && <SMEPage />}
+          {activePersona === 'penganalisis' && <AnalystPage />}
+          {activePersona === 'metodologi'   && <MethodologyPage />}
         </main>
 
-        <footer className="border-t border-slate-800 px-4 py-6 mt-4">
-          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+        <footer className="border-t border-slate-200 dark:border-slate-800 px-4 py-6 mt-4">
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400 dark:text-slate-500">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span>Sumber data:</span>
+              <span>{t('footer.sources')}</span>
               <SourceTag label="Petronas" href="https://www.petronas.com" />
               <SourceTag label="Bank Negara" href="https://www.bnm.gov.my" />
               <SourceTag label="DOSM" href="https://data.gov.my" />
@@ -165,11 +162,11 @@ export default function PantauKrisisDashboard() {
               <SourceTag label="Drewry WCI" href="https://www.drewry.co.uk/supply-chain-advisors/supply-chain-expertise/world-container-index-assessed-by-drewry" />
             </div>
             <div className="flex items-center gap-3">
-              <span>© 2026 Kementerian Digital</span>
-              <span className="text-slate-700">|</span>
-              <span className="hover:text-blue-400 cursor-pointer transition-colors">Tentang PantauKrisis</span>
-              <span className="text-slate-700">|</span>
-              <span className="hover:text-blue-400 cursor-pointer transition-colors">API Awam</span>
+              <span>{t('footer.copyright')}</span>
+              <span className="text-slate-300 dark:text-slate-700">|</span>
+              <span className="hover:text-blue-500 dark:hover:text-blue-400 cursor-pointer transition-colors">{t('footer.about')}</span>
+              <span className="text-slate-300 dark:text-slate-700">|</span>
+              <span className="hover:text-blue-500 dark:hover:text-blue-400 cursor-pointer transition-colors">{t('footer.api')}</span>
             </div>
           </div>
         </footer>

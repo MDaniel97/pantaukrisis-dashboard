@@ -6,6 +6,8 @@ import {
 } from 'recharts';
 import { ANALYST } from '../data/constants';
 import { DataContext } from '../context/DataContext';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import Card from '../components/Card';
 import SectionTitle from '../components/SectionTitle';
 import TrendChip from '../components/TrendChip';
@@ -18,9 +20,14 @@ import { pct, pp, trend } from '../utils/formatters';
 
 export default function AnalystPage() {
   const { commodities, macro } = useContext(DataContext);
+  const { isDark } = useTheme();
+  const { t } = useLanguage();
 
-  const t = macro?.trade;
-  const monthLabel = t?.month_label ?? 'terkini';
+  const chartGrid = isDark ? '#334155' : '#e2e8f0';
+  const chartTick = isDark ? '#94a3b8' : '#64748b';
+
+  const tm = macro?.trade;
+  const monthLabel = tm?.month_label ?? 'terkini';
 
   const myrUsd = {
     label:   'Kadar MYR/USD',
@@ -73,9 +80,7 @@ export default function AnalystPage() {
       label:   'Brent Crude',
       value:   b ? `USD ${b.value}` : `USD ${ANALYST.brent.value}`,
       unit:    '/bbl',
-      sub:     b
-        ? `Julat 52M: ${b.wk_low}–${b.wk_high} · ${b.date}`
-        : `Julat 52M: ${ANALYST.brent.wkLow}–${ANALYST.brent.wkHigh}`,
+      sub:     b ? `Julat 52M: ${b.wk_low}–${b.wk_high} · ${b.date}` : `Julat 52M: ${ANALYST.brent.wkLow}–${ANALYST.brent.wkHigh}`,
       tooltip: 'Brent Crude ialah penanda aras harga minyak mentah antarabangsa. Harga minyak Malaysia (RON95, diesel) dikira secara langsung berdasarkan Brent + kos penapisan tempatan.',
       change:  pct(b?.change_pct) ?? ANALYST.brent.change,
       trend:   b?.trend ?? ANALYST.brent.trend,
@@ -112,36 +117,36 @@ export default function AnalystPage() {
   ];
 
   const exportYTD = {
-    label:  'Jumlah Eksport YTD',
-    value:  t?.ytd_exports != null ? `RM ${t.ytd_exports}B` : `RM ${ANALYST.exportYTD.value}B`,
-    style:  'bg-emerald-950/30 border-emerald-800/30 text-emerald-300',
-    change: pct(t?.ytd_exp_yoy) ?? ANALYST.exportYTD.change,
-    trend:  trend(t?.ytd_exp_yoy) ?? ANALYST.exportYTD.trend,
+    label:  t('analyst.ytd.exports'),
+    value:  tm?.ytd_exports != null ? `RM ${tm.ytd_exports}B` : `RM ${ANALYST.exportYTD.value}B`,
+    style:  'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800/30 dark:text-emerald-300',
+    change: pct(tm?.ytd_exp_yoy) ?? ANALYST.exportYTD.change,
+    trend:  trend(tm?.ytd_exp_yoy) ?? ANALYST.exportYTD.trend,
     source: { label: 'DOSM', href: 'https://data.gov.my/data-catalogue/trade_headline' },
   };
 
   const importYTD = {
-    label:  'Jumlah Import YTD',
-    value:  t?.ytd_imports != null ? `RM ${t.ytd_imports}B` : `RM ${ANALYST.importYTD.value}B`,
-    style:  'bg-rose-950/30 border-rose-800/30 text-rose-300',
-    change: pct(t?.ytd_imp_yoy) ?? ANALYST.importYTD.change,
-    trend:  trend(t?.ytd_imp_yoy) ?? ANALYST.importYTD.trend,
+    label:  t('analyst.ytd.imports'),
+    value:  tm?.ytd_imports != null ? `RM ${tm.ytd_imports}B` : `RM ${ANALYST.importYTD.value}B`,
+    style:  'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/30 dark:border-rose-800/30 dark:text-rose-300',
+    change: pct(tm?.ytd_imp_yoy) ?? ANALYST.importYTD.change,
+    trend:  trend(tm?.ytd_imp_yoy) ?? ANALYST.importYTD.trend,
     source: { label: 'DOSM', href: 'https://data.gov.my/data-catalogue/trade_headline' },
   };
 
   const tradeBalYTD = {
-    label:  'Lebihan Dagangan YTD',
-    value:  t?.ytd_balance != null ? `+RM ${t.ytd_balance}B` : `+RM ${ANALYST.tradeBalanceYTD.value}B`,
-    style:  'bg-blue-950/30 border-blue-800/30 text-blue-300',
+    label:  t('analyst.ytd.balance'),
+    value:  tm?.ytd_balance != null ? `+RM ${tm.ytd_balance}B` : `+RM ${ANALYST.tradeBalanceYTD.value}B`,
+    style:  'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800/30 dark:text-blue-300',
     change: ANALYST.tradeBalanceYTD.change,
     trend:  ANALYST.tradeBalanceYTD.trend,
     source: { label: 'DOSM', href: 'https://data.gov.my/data-catalogue/trade_headline' },
   };
 
-  const [myrHistory, setMyrHistory]     = useState([]);
-  const [myrDays, setMyrDays]           = useState(90);
-  const [myrExpanded, setMyrExpanded]   = useState(false);
-  const [myrLoading, setMyrLoading]     = useState(false);
+  const [myrHistory, setMyrHistory]   = useState([]);
+  const [myrDays, setMyrDays]         = useState(90);
+  const [myrExpanded, setMyrExpanded] = useState(false);
+  const [myrLoading, setMyrLoading]   = useState(false);
 
   useEffect(() => {
     if (!myrExpanded) return;
@@ -155,9 +160,9 @@ export default function AnalystPage() {
   function MyrTooltip({ active, payload, label }) {
     if (!active || !payload?.length) return null;
     return (
-      <div className="bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-xs shadow-2xl">
-        <div className="text-slate-400 mb-1">{label}</div>
-        <div className="font-mono font-bold text-blue-300">{payload[0].value?.toFixed(4)}</div>
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-xs shadow-2xl">
+        <div className="text-slate-500 dark:text-slate-400 mb-1">{label}</div>
+        <div className="font-mono font-bold text-blue-600 dark:text-blue-300">{payload[0].value?.toFixed(4)}</div>
       </div>
     );
   }
@@ -167,8 +172,8 @@ export default function AnalystPage() {
       <Card>
         <SectionTitle
           icon={BarChart3}
-          title="Papan Pemuka Makroekonomi Penuh"
-          sub={`Apr–Mei 2026`}
+          title={t('analyst.macro.title')}
+          sub={t('analyst.macro.sub')}
         />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {MACRO_GRID.map(item => {
@@ -180,31 +185,27 @@ export default function AnalystPage() {
                 onClick={isMyr ? () => setMyrExpanded(v => !v) : undefined}
                 className={`rounded-xl p-3.5 transition-colors ${
                   isMyr
-                    ? `cursor-pointer ${active ? 'bg-blue-900/40 ring-1 ring-blue-500/50' : 'bg-slate-700/50 hover:bg-slate-700/80'}`
-                    : 'bg-slate-700/50 hover:bg-slate-700/80'
+                    ? `cursor-pointer ${active ? 'bg-blue-50 ring-1 ring-blue-400/50 dark:bg-blue-900/40 dark:ring-blue-500/50' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700/80'}`
+                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700/80'
                 }`}
               >
-                <div className="flex items-center text-xs text-slate-400 font-medium mb-1.5">
+                <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5">
                   {item.label}
                   {item.tooltip && <InfoTooltip text={item.tooltip} />}
                   {isMyr && (
-                    <span className="ml-auto text-[10px] text-blue-400 font-normal">
-                      {active ? 'tutup ▲' : 'graf ▼'}
+                    <span className="ml-auto text-[10px] text-blue-500 dark:text-blue-400 font-normal">
+                      {active ? t('analyst.chart.close') : t('analyst.chart.open')}
                     </span>
                   )}
                 </div>
-                <div className="text-2xl font-bold text-white leading-tight">
+                <div className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
                   {item.value}
                   {item.unit && <span className="text-xs text-slate-400 font-normal ml-1">{item.unit}</span>}
                 </div>
-                <div className="mt-2">
-                  <TrendChip change={item.change} trend={item.trend} />
-                </div>
-                <div className="text-xs text-slate-500 mt-1.5 leading-snug">{item.sub}</div>
+                <div className="mt-2"><TrendChip change={item.change} trend={item.trend} /></div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 leading-snug">{item.sub}</div>
                 {item.source && (
-                  <div className="mt-2">
-                    <SourceTag label={item.source.label} href={item.source.href} />
-                  </div>
+                  <div className="mt-2"><SourceTag label={item.source.label} href={item.source.href} /></div>
                 )}
               </div>
             );
@@ -212,11 +213,11 @@ export default function AnalystPage() {
         </div>
 
         {myrExpanded && (
-          <div className="mt-4 bg-slate-800/60 rounded-xl p-4">
+          <div className="mt-4 bg-slate-100 dark:bg-slate-800/60 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="text-sm font-semibold text-white">Trend MYR/USD</div>
-                <div className="text-xs text-slate-500 mt-0.5">Kadar harian · FRED DEXMAUS</div>
+                <div className="text-sm font-semibold text-slate-900 dark:text-white">{t('analyst.myr.title')}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{t('analyst.myr.sub')}</div>
               </div>
               <div className="flex items-center gap-2">
                 {[30, 90, 180, 365].map(d => (
@@ -226,7 +227,7 @@ export default function AnalystPage() {
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
                       myrDays === d
                         ? 'bg-blue-600 text-white'
-                        : 'bg-slate-700 text-slate-400 hover:text-white hover:bg-slate-600'
+                        : 'bg-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-600'
                     }`}
                   >
                     {d === 365 ? '1T' : `${d}H`}
@@ -234,7 +235,7 @@ export default function AnalystPage() {
                 ))}
                 <button
                   onClick={() => setMyrExpanded(false)}
-                  className="ml-1 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                  className="ml-1 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 dark:hover:text-white dark:hover:bg-slate-700 transition-colors"
                 >
                   <X size={14} />
                 </button>
@@ -242,43 +243,23 @@ export default function AnalystPage() {
             </div>
 
             {myrLoading ? (
-              <div className="h-48 flex items-center justify-center gap-2 text-slate-500 text-sm">
+              <div className="h-48 flex items-center justify-center gap-2 text-slate-400 dark:text-slate-500 text-sm">
                 <RefreshCw size={14} className="animate-spin" />
-                Memuatkan...
+                {t('analyst.loading')}
               </div>
             ) : myrHistory.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
-                Gagal memuatkan data.
+              <div className="h-48 flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">
+                {t('analyst.error')}
               </div>
             ) : (
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={myrHistory} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fill: '#94a3b8', fontSize: 10 }}
-                      axisLine={{ stroke: '#334155' }}
-                      tickLine={false}
-                      interval="preserveStartEnd"
-                    />
-                    <YAxis
-                      domain={['auto', 'auto']}
-                      tickFormatter={v => v.toFixed(2)}
-                      tick={{ fill: '#94a3b8', fontSize: 10 }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={44}
-                    />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} vertical={false} />
+                    <XAxis dataKey="date" tick={{ fill: chartTick, fontSize: 10 }} axisLine={{ stroke: chartGrid }} tickLine={false} interval="preserveStartEnd" />
+                    <YAxis domain={['auto', 'auto']} tickFormatter={v => v.toFixed(2)} tick={{ fill: chartTick, fontSize: 10 }} axisLine={false} tickLine={false} width={44} />
                     <Tooltip content={<MyrTooltip />} />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#60a5fa"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4, strokeWidth: 0 }}
-                    />
+                    <Line type="monotone" dataKey="value" stroke="#60a5fa" strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -290,21 +271,17 @@ export default function AnalystPage() {
       <Card>
         <SectionTitle
           icon={Globe}
-          title="Imbangan Dagangan Terperinci"
-          sub={`Kumulatif Jan–${monthLabel}`}
+          title={t('analyst.trade.title')}
+          sub={t('analyst.trade.sub', { month: monthLabel })}
         />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[exportYTD, importYTD, tradeBalYTD].map(item => (
             <div key={item.label} className={`border rounded-xl p-4 text-center ${item.style}`}>
-              <div className="text-xs text-slate-400 mb-2">{item.label}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">{item.label}</div>
               <div className="text-xl font-bold">{item.value}</div>
-              <div className="mt-2 flex justify-center">
-                <TrendChip change={item.change} trend={item.trend} />
-              </div>
+              <div className="mt-2 flex justify-center"><TrendChip change={item.change} trend={item.trend} /></div>
               {item.source && (
-                <div className="mt-2 flex justify-center">
-                  <SourceTag label={item.source.label} href={item.source.href} />
-                </div>
+                <div className="mt-2 flex justify-center"><SourceTag label={item.source.label} href={item.source.href} /></div>
               )}
             </div>
           ))}
@@ -314,10 +291,10 @@ export default function AnalystPage() {
       <Card>
         <SectionTitle
           icon={Package}
-          iconBg="bg-slate-700"
-          iconColor="text-slate-300"
-          title="Data Barangan Asas — Lengkap"
-          sub="Harga runcit & status bekalan semasa"
+          iconBg="bg-slate-200 dark:bg-slate-700"
+          iconColor="text-slate-600 dark:text-slate-300"
+          title={t('analyst.commodity.title')}
+          sub={t('analyst.commodity.sub')}
         />
         <div className="mb-3">
           <SourceTag label="DOSM PriceCatcher" href="https://data.gov.my/data-catalogue/pricecatcher" />
@@ -325,44 +302,36 @@ export default function AnalystPage() {
         <div className="overflow-x-auto -mx-1">
           <table className="w-full text-sm min-w-[560px]">
             <thead>
-              <tr className="text-xs text-slate-500 border-b border-slate-700">
-                <th className="text-left pb-2.5 font-medium">Barangan</th>
-                <th className="text-right pb-2.5 font-medium">Harga Runcit</th>
+              <tr className="text-xs text-slate-500 border-b border-slate-200 dark:border-slate-700">
+                <th className="text-left pb-2.5 font-medium">{t('analyst.col.item')}</th>
+                <th className="text-right pb-2.5 font-medium">{t('analyst.col.retail')}</th>
                 <th className="text-right pb-2.5 font-medium">MoM</th>
-                <th className="text-right pb-2.5 font-medium pr-4">Status</th>
-                <th className="text-left pb-2.5 font-medium pl-4">Nota Bekalan</th>
+                <th className="text-right pb-2.5 font-medium pr-4">{t('analyst.col.status')}</th>
+                <th className="text-left pb-2.5 font-medium pl-4">{t('analyst.col.note')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/50">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
               {commodities.map(item => (
-                <tr key={item.id} className="hover:bg-slate-700/20 transition-colors">
+                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
                   <td className="py-3">
                     <span className="mr-2 text-base">{item.emoji}</span>
-                    <span className="text-white font-medium">{item.name}</span>
+                    <span className="text-slate-900 dark:text-white font-medium">{item.name}</span>
                   </td>
-                  <td className="py-3 text-right text-white font-mono">{item.retailPrice}</td>
-                  <td className="py-3 text-right">
-                    <TrendChip change={item.change} trend={item.trend} />
-                  </td>
+                  <td className="py-3 text-right text-slate-900 dark:text-white font-mono">{item.retailPrice}</td>
+                  <td className="py-3 text-right"><TrendChip change={item.change} trend={item.trend} /></td>
                   <td className="py-3 pr-4">
                     <div className="flex items-center justify-end gap-1.5">
                       <StatusLight status={item.status} />
-                      <span
-                        className={`text-xs font-medium ${
-                          item.status === 'stable'
-                            ? 'text-emerald-400'
-                            : item.status === 'warning'
-                            ? 'text-amber-400'
-                            : 'text-rose-400'
-                        }`}
-                      >
-                        {item.status === 'stable' ? 'Stabil' : item.status === 'warning' ? 'Amaran' : 'Kritikal'}
+                      <span className={`text-xs font-medium ${
+                        item.status === 'stable' ? 'text-emerald-600 dark:text-emerald-400'
+                        : item.status === 'warning' ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-rose-600 dark:text-rose-400'
+                      }`}>
+                        {item.status === 'stable' ? t('commodity.stable') : item.status === 'warning' ? t('commodity.warning') : t('commodity.critical')}
                       </span>
                     </div>
                   </td>
-                  <td className="py-3 pl-4 text-xs text-slate-400 max-w-[220px] leading-relaxed">
-                    {item.note}
-                  </td>
+                  <td className="py-3 pl-4 text-xs text-slate-500 dark:text-slate-400 max-w-[220px] leading-relaxed">{item.note}</td>
                 </tr>
               ))}
             </tbody>

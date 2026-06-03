@@ -5,8 +5,8 @@ export default function SectionTitle({ icon: Icon, iconBg = 'bg-blue-950', iconC
         <Icon size={18} className={iconColor} />
       </div>
       <div>
-        <h2 className="text-white font-semibold text-base leading-tight">{title}</h2>
-        {sub && <p className="text-slate-500 text-xs mt-0.5">{sub}</p>}
+        <h2 className="text-slate-900 dark:text-white font-semibold text-base leading-tight">{title}</h2>
+        {sub && <p className="text-slate-400 dark:text-slate-500 text-xs mt-0.5">{sub}</p>}
       </div>
     </div>
   );
