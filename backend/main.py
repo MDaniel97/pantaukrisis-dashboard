@@ -72,6 +72,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:3000",
         "https://mdaniel97.github.io",
+        "https://pantaukrisis-dashboard.malaysiaprototype.site",
         *_EXTRA_ORIGINS,
     ],
     allow_methods=["GET"],
