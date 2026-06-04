@@ -2,6 +2,11 @@ export const translations = {
   bm: {
     // Header & Footer
     'app.tagline':        'Pemantauan Bekalan & Harga Semasa Malaysia',
+    'status.source.dosm':     'Sumber: DOSM langsung',
+    'status.source.snapshot': 'Sumber: snapshot terkini',
+    'status.source.backend':  'Sumber: backend',
+    'status.source.mock':     'Sumber: data sandaran',
+    'status.backendDown':     'Backend tidak aktif',
     'footer.sources':     'Sumber data:',
     'footer.copyright':   '© 2026 Kementerian Digital',
     'footer.about':       'Tentang PantauKrisis',
@@ -175,6 +180,11 @@ export const translations = {
   en: {
     // Header & Footer
     'app.tagline':        'Malaysia Supply & Current Price Monitor',
+    'status.source.dosm':     'Source: DOSM live',
+    'status.source.snapshot': 'Source: latest snapshot',
+    'status.source.backend':  'Source: backend',
+    'status.source.mock':     'Source: fallback data',
+    'status.backendDown':     'Backend down',
     'footer.sources':     'Data sources:',
     'footer.copyright':   '© 2026 Ministry of Digital',
     'footer.about':       'About PantauKrisis',

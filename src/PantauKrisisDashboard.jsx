@@ -27,31 +27,44 @@ export default function PantauKrisisDashboard() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [macro, setMacro] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fuelSource, setFuelSource] = useState('mock');
+  const [backendUp, setBackendUp] = useState(null);
 
   useEffect(() => {
     const tryInOrder = (...fetchers) =>
       fetchers.reduce((p, fn) => p.catch(fn), Promise.reject());
 
+    // Priority: DOSM live → latest snapshot → backend (down) → hardcoded mock.
     const fetchFuel = () => tryInOrder(
-      () => fetchFuelLatest(),
       () => fetch('https://api.data.gov.my/data-catalogue?id=fuelprice&limit=1&sort=-date')
               .then(r => r.ok ? r.json() : Promise.reject())
-              .then(rows => rows[0]),
+              .then(rows => ({ ...rows[0], _source: 'dosm' })),
       () => fetch('/fuel-snapshot.json')
-              .then(r => r.ok ? r.json() : Promise.reject()),
+              .then(r => r.ok ? r.json() : Promise.reject())
+              .then(d => ({ ...d, _source: 'snapshot' })),
+      () => fetchFuelLatest()
+              .then(d => ({ ...d, _source: 'backend' })),
     );
 
-    Promise.all([
-      fetchFuel(),
-      fetchCommodities(),
-    ])
-      .then(([fuelData, commodityData]) => {
+    // Fuel and commodities are fetched independently — a commodities failure
+    // must never discard a good fuel result (and vice versa).
+    fetchFuel()
+      .then(fuelData => {
         setFuel(mapFuelResponse(fuelData));
-        if (commodityData.length > 0) setCommodities(mapCommoditiesResponse(commodityData));
+        setFuelSource(fuelData._source);
         setLastUpdated(fuelData.fetched_at ?? fuelData.snapshot_at ?? fuelData.date);
       })
-      .catch(err => console.warn('API unavailable, using mock data:', err))
+      .catch(err => console.warn('Fuel unavailable, using mock data:', err))
       .finally(() => setLoading(false));
+
+    fetchCommodities()
+      .then(data => { if (data.length > 0) setCommodities(mapCommoditiesResponse(data)); })
+      .catch(err => console.warn('Commodities unavailable, using mock data:', err));
+
+    // Probe the backend independently so the header can flag when it is down.
+    fetchFuelLatest()
+      .then(() => setBackendUp(true))
+      .catch(() => setBackendUp(false));
 
     fetchMacro()
       .then(data => { if (data) setMacro(data); })
@@ -76,17 +89,25 @@ export default function PantauKrisisDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
-                <RefreshCw size={11} className={loading ? 'animate-spin text-slate-400 dark:text-slate-500' : 'text-emerald-500 dark:text-emerald-400'} />
-                <span className="text-slate-500 dark:text-slate-300">
-                  {lastUpdated ? (() => {
-                    const d = new Date(lastUpdated);
-                    return Number.isNaN(d.getTime()) ? lastUpdated : d.toLocaleString('ms-MY', {
-                      day: 'numeric', month: 'short', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit',
-                    });
-                  })() : '—'}
-                </span>
+              <div className="flex flex-col items-end gap-0.5 text-xs shrink-0">
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                  <RefreshCw size={11} className={loading ? 'animate-spin text-slate-400 dark:text-slate-500' : 'text-emerald-500 dark:text-emerald-400'} />
+                  <span className="text-slate-500 dark:text-slate-300" title={t(`status.source.${fuelSource}`)}>
+                    {lastUpdated ? (() => {
+                      const d = new Date(lastUpdated);
+                      return Number.isNaN(d.getTime()) ? lastUpdated : d.toLocaleString('ms-MY', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      });
+                    })() : '—'}
+                  </span>
+                </div>
+                {backendUp === false && (
+                  <span className="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    {t('status.backendDown')} · {t(`status.source.${fuelSource}`)}
+                  </span>
+                )}
               </div>
               {/* Language toggle */}
               <button
