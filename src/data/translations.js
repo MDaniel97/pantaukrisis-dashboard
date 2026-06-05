@@ -137,6 +137,16 @@ export const translations = {
     'analyst.ytd.exports':     'Jumlah Eksport YTD',
     'analyst.ytd.imports':     'Jumlah Import YTD',
     'analyst.ytd.balance':     'Lebihan Dagangan YTD',
+    'analyst.fx.title':        'Kadar Pertukaran Mata Wang',
+    'analyst.fx.sub':          'Kadar tengah BNM',
+    'analyst.fx.loading':      'Memuat kadar pertukaran…',
+    'analyst.fx.majors':       'Mata Wang Utama',
+    'analyst.fx.sea':          'Asia Tenggara',
+    'analyst.fx.nochart':      'Tiada graf',
+    'analyst.fx.range.week':   'Mingguan',
+    'analyst.fx.range.month':  'Bulanan',
+    'analyst.fx.range.year':   'Tahunan',
+    'analyst.fx.note':         'Kadar semasa: BNM · Graf {range}: ECB · VND: Yahoo Finance · BND dipatok 1:1 dengan SGD',
 
     // Methodology Page
     'method.intro':                'Sumber Data',
@@ -315,6 +325,16 @@ export const translations = {
     'analyst.ytd.exports':     'Total Exports YTD',
     'analyst.ytd.imports':     'Total Imports YTD',
     'analyst.ytd.balance':     'Trade Surplus YTD',
+    'analyst.fx.title':        'Currency Exchange Rates',
+    'analyst.fx.sub':          'BNM middle rates',
+    'analyst.fx.loading':      'Loading exchange rates…',
+    'analyst.fx.majors':       'Major Currencies',
+    'analyst.fx.sea':          'Southeast Asia',
+    'analyst.fx.nochart':      'No chart',
+    'analyst.fx.range.week':   'Weekly',
+    'analyst.fx.range.month':  'Monthly',
+    'analyst.fx.range.year':   'Yearly',
+    'analyst.fx.note':         'Current rates: BNM · {range} chart: ECB · VND: Yahoo Finance · BND pegged 1:1 to SGD',
 
     // Methodology Page
     'method.intro':                'Data Sources',

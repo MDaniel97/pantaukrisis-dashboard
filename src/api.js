@@ -13,3 +13,4 @@ export const fetchFuelHistory = (weeks = 12) => get(`/api/fuel/history?weeks=${w
 export const fetchCommodities = () => get('/api/commodities')
 export const fetchMacro = () => get('/api/macro')
 export const fetchMyrHistory = (days = 90) => get(`/api/macro/myr-usd/history?days=${days}`)
+export const fetchFxHistory = (range = 'month') => get(`/api/macro/fx/history?range=${range}`)
