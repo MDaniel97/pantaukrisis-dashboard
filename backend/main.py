@@ -485,7 +485,7 @@ async def _fx_history(days: int = 30) -> dict[str, list[dict]]:
     """Per-currency MYR-per-unit daily series from Frankfurter (ECB). Empty dict on failure."""
     end   = date.today()
     start = end - timedelta(days=days + 15)   # pad for weekends/holidays
-    symbols = ",".join(FX_MAJORS + FX_SEA)
+    symbols = ",".join([c for c in FX_MAJORS + FX_SEA if c not in ("VND", "BND")])
     url = f"{FRANKFURTER_BASE}/{start.isoformat()}..{end.isoformat()}?base=MYR&symbols={symbols}"
     try:
         data = await fetch_json(url)
