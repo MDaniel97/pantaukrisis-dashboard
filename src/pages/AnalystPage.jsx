@@ -235,13 +235,16 @@ export default function AnalystPage() {
             ))}
           </div>
         </div>
-        {!fx ? (
+        {macro === null ? (
           <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-400 dark:text-slate-500">
             <RefreshCw size={14} className="animate-spin" />
             {t('analyst.fx.loading')}
           </div>
+        ) : !fx ? (
+          <div className="flex items-center justify-center py-6 text-sm text-slate-400 dark:text-slate-500">
+            {t('analyst.error')}
+          </div>
         ) : (
-          <div className="space-y-4">
             {[
               { label: t('analyst.fx.majors'), rows: fx.majors ?? [] },
               { label: t('analyst.fx.sea'),    rows: fx.sea ?? [] },
