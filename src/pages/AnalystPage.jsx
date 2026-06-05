@@ -42,7 +42,8 @@ export default function AnalystPage() {
   }, [fx]);
 
   useEffect(() => {
-    if (fxSeries[fxRange]) return;          // already cached (incl. seeded month)
+    if (fxRange === 'month') return; // seeded from macro.fx
+    if (fxSeries[fxRange]) return;          // already cached
     setFxLoading(true);
     fetchFxHistory(fxRange)
       .then(data => setFxSeries(s => ({ ...s, [fxRange]: data })))
