@@ -752,14 +752,14 @@ async def macro(request: Request):
 
 @app.get("/api/macro/fx/history")
 @limiter.limit("20/minute")
-async def fx_history(request: Request, range: str = Query("month", pattern="^(week|month|year)$")):
+async def fx_history(request: Request, range_: str = Query("month", pattern="^(week|month|year)$", alias="range")):
     """Per-currency MYR-per-unit sparkline series for a given timeframe.
 
     Returns a flat map keyed by currency code:
         { "USD": { "spark": [{date, myr}], "change_pct": ..., "trend": ... }, ... }
     """
-    days = FX_RANGE_DAYS[range]
-    yr   = FX_YAHOO_RANGE[range]
+    days = FX_RANGE_DAYS[range_]
+    yr   = FX_YAHOO_RANGE[range_]
     hist = await _fx_hist_all(days, yr)
     return {
         code: {"spark": pts, "change_pct": _fx_change(pts), "trend": _trend(_fx_change(pts))}
