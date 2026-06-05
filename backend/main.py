@@ -582,7 +582,7 @@ async def _macro_fx() -> Optional[dict]:
                 "myr":        round(mid / unit, 6),   # RM per 1 unit of foreign currency
                 "change_pct": change_pct,             # ~30-day change, None if no history
                 "trend":      _trend(change_pct),
-                "spark":      spark,                  # [{date, myr}], empty for VND/BND
+                "spark":      spark,                  # [{date, myr}] (may be empty if upstream history fetch fails)
             }
 
         majors = [r for code in FX_MAJORS if (r := row(code))]
