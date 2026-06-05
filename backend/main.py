@@ -761,10 +761,11 @@ async def fx_history(request: Request, range_: str = Query("month", pattern="^(w
     days = FX_RANGE_DAYS[range_]
     yr   = FX_YAHOO_RANGE[range_]
     hist = await _fx_hist_all(days, yr)
-    return {
-        code: {"spark": pts, "change_pct": _fx_change(pts), "trend": _trend(_fx_change(pts))}
-        for code, pts in hist.items()
-    }
+    out = {}
+    for code, pts in hist.items():
+        chg = _fx_change(pts)
+        out[code] = {"spark": pts, "change_pct": chg, "trend": _trend(chg)}
+    return out
 
 
 @app.get("/api/macro/myr-usd/history")
