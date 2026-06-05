@@ -245,9 +245,10 @@ export default function AnalystPage() {
             {t('analyst.error')}
           </div>
         ) : (
+          <div className="space-y-4">
             {[
               { label: t('analyst.fx.majors'), rows: fx.majors ?? [] },
-              { label: t('analyst.fx.sea'),    rows: fx.sea ?? [] },
+              { label: t('analyst.fx.sea'), rows: fx.sea ?? [] },
             ].map(section => (
               <div key={section.label}>
                 <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
