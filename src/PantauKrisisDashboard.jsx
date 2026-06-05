@@ -73,12 +73,12 @@ export default function PantauKrisisDashboard() {
 
   return (
     <DataContext.Provider value={{ fuel, commodities, lastUpdated, macro }}>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-sans antialiased">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-sans antialiased">
 
         <header className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4">
-          <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
+          <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-600 p-2 rounded-xl">
+              <div className="bg-blue-600 p-2 rounded-xl shrink-0">
                 <Activity size={20} className="text-white" />
               </div>
               <div>
@@ -88,7 +88,7 @@ export default function PantauKrisisDashboard() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <div className="flex flex-col items-end gap-0.5 text-xs shrink-0">
                 <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
                   <RefreshCw size={11} className={loading ? 'animate-spin text-slate-400 dark:text-slate-500' : 'text-emerald-500 dark:text-emerald-400'} />
@@ -133,7 +133,7 @@ export default function PantauKrisisDashboard() {
 
         <div className="sticky top-0 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3">
           <div className="max-w-5xl mx-auto">
-            <div className="flex gap-2">
+            <div className="flex gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
               {PERSONA_KEYS.map(p => {
                 const Icon = p.icon;
                 const active = activePersona === p.id;
@@ -141,7 +141,7 @@ export default function PantauKrisisDashboard() {
                   <button
                     key={p.id}
                     onClick={() => setActivePersona(p.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    className={`flex items-center gap-2 shrink-0 px-3 sm:px-4 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       active
                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800'

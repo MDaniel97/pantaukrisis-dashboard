@@ -14,7 +14,7 @@ export default function FuelComparisonWidget() {
   const savingsPct = Math.round(((fuel.marketRON95 - fuel.budi95Retail) / fuel.marketRON95) * 100);
 
   return (
-    <Card className="w-fit max-w-2xl">
+    <Card>
       <SectionTitle
         icon={Fuel}
         title={t('fuel.title')}
@@ -102,7 +102,7 @@ export default function FuelComparisonWidget() {
           { badgeCls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300',             label: t('fuel.badge.market'),      desc: t('fuel.legend.market.desc') },
           { badgeCls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300',         label: t('fuel.badge.controlled'),   desc: t('fuel.legend.controlled.desc') },
         ].map(item => (
-          <div key={item.label} className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+          <div key={item.label} className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <span className={`px-1.5 py-0.5 rounded-full font-medium text-xs shrink-0 ${item.badgeCls}`}>{item.label}</span>
             <span>{item.desc}</span>
           </div>
