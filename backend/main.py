@@ -11,13 +11,18 @@ import io
 import json
 import logging
 import os
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlencode
 
 import httpx
 import pandas as pd
+import truststore
+
+# Use the OS trust store for TLS so endpoints that serve an incomplete cert
+# chain (e.g. BNM's exchange-rate API) verify correctly via AIA chasing.
+truststore.inject_into_ssl()
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -450,6 +455,146 @@ async def _macro_myr_usd() -> Optional[dict]:
         return None
 
 
+# Currencies to surface in the FX table, in priority order: majors then SEA neighbours.
+FX_MAJORS = ["USD", "EUR", "GBP", "JPY", "CNY", "AUD"]
+FX_SEA    = ["SGD", "THB", "IDR", "PHP", "VND", "BND"]
+
+# Daily MYR-per-unit history for sparklines (ECB reference rates; free, no key).
+# ECB does not publish VND or BND, so those are sourced separately below:
+#   VND → Yahoo cross USDMYR/USDVND ;  BND → pegged 1:1 to SGD.
+FRANKFURTER_BASE = "https://api.frankfurter.dev/v1"
+YAHOO_CHART_BASE = "https://query1.finance.yahoo.com/v8/finance/chart"
+
+FX_META: dict[str, tuple[str, str]] = {
+    "USD": ("Dolar AS",          "🇺🇸"),
+    "EUR": ("Euro",              "🇪🇺"),
+    "GBP": ("Paun Britain",      "🇬🇧"),
+    "JPY": ("Yen Jepun",         "🇯🇵"),
+    "CNY": ("Yuan China",        "🇨🇳"),
+    "AUD": ("Dolar Australia",   "🇦🇺"),
+    "SGD": ("Dolar Singapura",   "🇸🇬"),
+    "THB": ("Baht Thailand",     "🇹🇭"),
+    "IDR": ("Rupiah Indonesia",  "🇮🇩"),
+    "PHP": ("Peso Filipina",     "🇵🇭"),
+    "VND": ("Dong Vietnam",      "🇻🇳"),
+    "BND": ("Dolar Brunei",      "🇧🇳"),
+}
+
+
+async def _fx_history(days: int = 30) -> dict[str, list[dict]]:
+    """Per-currency MYR-per-unit daily series from Frankfurter (ECB). Empty dict on failure."""
+    end   = date.today()
+    start = end - timedelta(days=days + 15)   # pad for weekends/holidays
+    symbols = ",".join([c for c in FX_MAJORS + FX_SEA if c not in ("VND", "BND")])
+    url = f"{FRANKFURTER_BASE}/{start.isoformat()}..{end.isoformat()}?base=MYR&symbols={symbols}"
+    try:
+        data = await fetch_json(url)
+    except Exception as exc:
+        logger.warning("Frankfurter FX history failed: %s", exc)
+        return {}
+    rates = data.get("rates", {})
+    series: dict[str, list[dict]] = {}
+    for d in sorted(rates):                    # ascending by date
+        for code, val in rates[d].items():
+            if val:                            # invert: CCY-per-MYR → MYR-per-CCY
+                series.setdefault(code, []).append({"date": d, "myr": round(1 / val, 6)})
+    return {c: pts[-days:] for c, pts in series.items()}
+
+
+async def _yahoo_closes(symbol: str, yahoo_range: str = "1mo") -> dict[str, float]:
+    """Daily close prices for a Yahoo FX symbol, keyed by ISO date."""
+    url = f"{YAHOO_CHART_BASE}/{symbol}?range={yahoo_range}&interval=1d"
+    data = await fetch_json(url, headers={"User-Agent": "Mozilla/5.0"})
+    res    = data["chart"]["result"][0]
+    stamps = res["timestamp"]
+    closes = res["indicators"]["quote"][0]["close"]
+    out: dict[str, float] = {}
+    for ts, c in zip(stamps, closes):
+        if c:
+            out[datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d")] = c
+    return out
+
+
+async def _fx_history_vnd(days: int = 30, yahoo_range: str = "1mo") -> list[dict]:
+    """MYR-per-VND series via the Yahoo cross USDMYR / USDVND (ECB lacks VND)."""
+    try:
+        usdvnd = await _yahoo_closes("USDVND=X", yahoo_range)
+        usdmyr = await _yahoo_closes("USDMYR=X", yahoo_range)
+    except Exception as exc:
+        logger.warning("Yahoo VND history failed: %s", exc)
+        return []
+    pts = [
+        {"date": d, "myr": round(usdmyr[d] / usdvnd[d], 6)}
+        for d in sorted(usdvnd)
+        if d in usdmyr and usdvnd[d]
+    ]
+    return pts[-days:]
+
+
+# Timeframe presets for the FX sparklines (today-relative windows).
+FX_RANGE_DAYS  = {"week": 7, "month": 30, "year": 365}
+FX_YAHOO_RANGE = {"week": "5d", "month": "1mo", "year": "1y"}
+
+
+async def _fx_hist_all(days: int, yahoo_range: str) -> dict[str, list[dict]]:
+    """MYR-per-unit history for every surfaced currency, including VND and BND."""
+    hist = await _fx_history(days)
+    hist["VND"] = await _fx_history_vnd(days, yahoo_range)   # ECB lacks VND → Yahoo cross
+    if hist.get("SGD"):
+        hist["BND"] = hist["SGD"]                            # BND pegged 1:1 to SGD
+    return hist
+
+
+def _fx_change(pts: list[dict]) -> Optional[float]:
+    if len(pts) >= 2 and pts[0]["myr"]:
+        return round((pts[-1]["myr"] - pts[0]["myr"]) / pts[0]["myr"] * 100, 2)
+    return None
+
+
+async def _macro_fx() -> Optional[dict]:
+    """Curated FX boxes from BNM (current middle rate) + Frankfurter sparkline history."""
+    try:
+        bnm = await fetch_json(
+            BNM_EXCHANGE_URL,
+            headers={"Accept": "application/vnd.BNM.API.v1+json"},
+        )
+        by_code = {c["currency_code"]: c for c in bnm.get("data", [])}
+        latest_date: Optional[str] = None
+        hist = await _fx_hist_all(FX_RANGE_DAYS["month"], FX_YAHOO_RANGE["month"])
+
+        def row(code: str) -> Optional[dict]:
+            nonlocal latest_date
+            c = by_code.get(code)
+            if not c:
+                return None
+            mid  = c["rate"]["middle_rate"]
+            unit = c.get("unit") or 1
+            if mid is None:
+                return None
+            latest_date = c["rate"]["date"]
+            name, flag = FX_META.get(code, (code, ""))
+            spark = hist.get(code, [])
+            change_pct = _fx_change(spark)
+            return {
+                "code":       code,
+                "name":       name,
+                "flag":       flag,
+                "myr":        round(mid / unit, 6),   # RM per 1 unit of foreign currency
+                "change_pct": change_pct,             # ~30-day change, None if no history
+                "trend":      _trend(change_pct),
+                "spark":      spark,                  # [{date, myr}] (may be empty if upstream history fetch fails)
+            }
+
+        majors = [r for code in FX_MAJORS if (r := row(code))]
+        sea    = [r for code in FX_SEA    if (r := row(code))]
+        if not majors and not sea:
+            return None
+        return {"date": latest_date, "majors": majors, "sea": sea}
+    except Exception as exc:
+        logger.warning("BNM FX fetch failed: %s", exc)
+        return None
+
+
 def _cpi_stat(division: str, by_div: dict) -> Optional[dict]:
     idx = by_div.get(division, {})
     if not idx:
@@ -591,8 +736,8 @@ async def _macro_oil() -> Optional[dict]:
 @limiter.limit("20/minute")
 async def macro(request: Request):
     """Live macro data: MYR/USD (BNM), CPI/PPI/Trade (DOSM), Brent/WTI (EIA)."""
-    myr_usd, cpi, ppi, trade, oil = await asyncio.gather(
-        _macro_myr_usd(), _macro_cpi(), _macro_ppi(), _macro_trade(), _macro_oil(),
+    myr_usd, cpi, ppi, trade, oil, fx = await asyncio.gather(
+        _macro_myr_usd(), _macro_cpi(), _macro_ppi(), _macro_trade(), _macro_oil(), _macro_fx(),
         return_exceptions=True,
     )
     out: dict = {}
@@ -601,6 +746,25 @@ async def macro(request: Request):
     if ppi      and not isinstance(ppi,    Exception): out["ppi"]     = ppi
     if trade    and not isinstance(trade,  Exception): out["trade"]   = trade
     if oil      and not isinstance(oil,    Exception): out.update(oil)
+    if fx       and not isinstance(fx,     Exception): out["fx"]      = fx
+    return out
+
+
+@app.get("/api/macro/fx/history")
+@limiter.limit("20/minute")
+async def fx_history(request: Request, range_: str = Query("month", pattern="^(week|month|year)$", alias="range")):
+    """Per-currency MYR-per-unit sparkline series for a given timeframe.
+
+    Returns a flat map keyed by currency code:
+        { "USD": { "spark": [{date, myr}], "change_pct": ..., "trend": ... }, ... }
+    """
+    days = FX_RANGE_DAYS[range_]
+    yr   = FX_YAHOO_RANGE[range_]
+    hist = await _fx_hist_all(days, yr)
+    out = {}
+    for code, pts in hist.items():
+        chg = _fx_change(pts)
+        out[code] = {"spark": pts, "change_pct": chg, "trend": _trend(chg)}
     return out
 
 

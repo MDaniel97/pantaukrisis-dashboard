@@ -1,12 +1,8 @@
 import { useContext, useState, useEffect } from 'react';
-import { BarChart3, Globe, Package, X, RefreshCw } from 'lucide-react';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer,
-} from 'recharts';
+import { BarChart3, Globe, Package, RefreshCw, Banknote } from 'lucide-react';
+import { LineChart, Line, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { ANALYST } from '../data/constants';
 import { DataContext } from '../context/DataContext';
-import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import Card from '../components/Card';
 import SectionTitle from '../components/SectionTitle';
@@ -15,19 +11,58 @@ import InfoTooltip from '../components/InfoTooltip';
 import SourceTag from '../components/SourceTag';
 import StatusLight from '../components/StatusLight';
 import GovernmentActionTicker from '../components/GovernmentActionTicker';
-import { fetchMyrHistory } from '../api';
+import { fetchFxHistory } from '../api';
 import { pct, pp, trend } from '../utils/formatters';
+
+const FX_RANGES = ['week', 'month', 'year'];
 
 export default function AnalystPage() {
   const { commodities, macro } = useContext(DataContext);
-  const { isDark } = useTheme();
   const { t } = useLanguage();
-
-  const chartGrid = isDark ? '#334155' : '#e2e8f0';
-  const chartTick = isDark ? '#94a3b8' : '#64748b';
 
   const tm = macro?.trade;
   const monthLabel = tm?.month_label ?? 'terkini';
+
+  const fx = macro?.fx;
+  const fmtRate = v => (v >= 0.1 ? v.toFixed(4) : v.toFixed(6));   // RM per 1 unit
+
+  // Sparkline series per timeframe, keyed by range then currency code.
+  // The 'month' range is seeded from macro.fx so boxes render without a fetch.
+  const [fxRange, setFxRange]     = useState('month');
+  const [fxSeries, setFxSeries]   = useState({});
+  const [fxLoading, setFxLoading] = useState(false);
+
+  useEffect(() => {
+    if (!fx) return;
+    const seeded = {};
+    [...(fx.majors ?? []), ...(fx.sea ?? [])].forEach(c => {
+      seeded[c.code] = { spark: c.spark, change_pct: c.change_pct, trend: c.trend };
+    });
+    setFxSeries(s => ({ ...s, month: seeded }));
+  }, [fx]);
+
+  useEffect(() => {
+    if (fxRange === 'month') return; // seeded from macro.fx
+    if (fxSeries[fxRange]) return;          // already cached
+    setFxLoading(true);
+    fetchFxHistory(fxRange)
+      .then(data => setFxSeries(s => ({ ...s, [fxRange]: data })))
+      .catch(() => {})
+      .finally(() => setFxLoading(false));
+  }, [fxRange, fxSeries]);
+
+  const fxNow = fxSeries[fxRange] ?? {};
+
+  function FxSparkTooltip({ active, payload }) {
+    if (!active || !payload?.length) return null;
+    const p = payload[0].payload;
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] shadow-lg dark:border-slate-600 dark:bg-slate-800">
+        <div className="text-slate-500 dark:text-slate-400">{p.date}</div>
+        <div className="font-mono font-bold text-slate-900 dark:text-white">RM {fmtRate(p.myr)}</div>
+      </div>
+    );
+  }
 
   const myrUsd = {
     label:   'Kadar MYR/USD',
@@ -143,30 +178,6 @@ export default function AnalystPage() {
     source: { label: 'DOSM', href: 'https://data.gov.my/data-catalogue/trade_headline' },
   };
 
-  const [myrHistory, setMyrHistory]   = useState([]);
-  const [myrDays, setMyrDays]         = useState(90);
-  const [myrExpanded, setMyrExpanded] = useState(false);
-  const [myrLoading, setMyrLoading]   = useState(false);
-
-  useEffect(() => {
-    if (!myrExpanded) return;
-    setMyrLoading(true);
-    fetchMyrHistory(myrDays)
-      .then(setMyrHistory)
-      .catch(() => setMyrHistory([]))
-      .finally(() => setMyrLoading(false));
-  }, [myrExpanded, myrDays]);
-
-  function MyrTooltip({ active, payload, label }) {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-xs shadow-2xl">
-        <div className="text-slate-500 dark:text-slate-400 mb-1">{label}</div>
-        <div className="font-mono font-bold text-blue-600 dark:text-blue-300">{payload[0].value?.toFixed(4)}</div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
       <Card>
@@ -176,94 +187,129 @@ export default function AnalystPage() {
           sub={t('analyst.macro.sub')}
         />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {MACRO_GRID.map(item => {
-            const isMyr = item.label === 'Kadar MYR/USD';
-            const active = isMyr && myrExpanded;
-            return (
-              <div
-                key={item.label}
-                onClick={isMyr ? () => setMyrExpanded(v => !v) : undefined}
-                className={`rounded-xl p-3.5 transition-colors ${
-                  isMyr
-                    ? `cursor-pointer ${active ? 'bg-blue-50 ring-1 ring-blue-400/50 dark:bg-blue-900/40 dark:ring-blue-500/50' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700/80'}`
-                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700/80'
+          {MACRO_GRID.map(item => (
+            <div
+              key={item.label}
+              className="rounded-xl p-3.5 transition-colors bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700/80"
+            >
+              <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5">
+                {item.label}
+                {item.tooltip && <InfoTooltip text={item.tooltip} />}
+              </div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                {item.value}
+                {item.unit && <span className="text-xs text-slate-400 font-normal ml-1">{item.unit}</span>}
+              </div>
+              <div className="mt-2"><TrendChip change={item.change} trend={item.trend} /></div>
+              <div className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 leading-snug">{item.sub}</div>
+              {item.source && (
+                <div className="mt-2"><SourceTag label={item.source.label} href={item.source.href} /></div>
+              )}
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
+        <SectionTitle
+          icon={Banknote}
+          title={t('analyst.fx.title')}
+          sub={fx?.date ? `${t('analyst.fx.sub')} · ${fx.date}` : t('analyst.fx.sub')}
+        />
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <SourceTag label="Bank Negara Malaysia" href="https://www.bnm.gov.my/exchange-rates" />
+          <div className="flex items-center gap-1.5">
+            {fxLoading && <RefreshCw size={12} className="animate-spin text-slate-400" />}
+            {FX_RANGES.map(r => (
+              <button
+                key={r}
+                onClick={() => setFxRange(r)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  fxRange === r
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-600'
                 }`}
               >
-                <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5">
-                  {item.label}
-                  {item.tooltip && <InfoTooltip text={item.tooltip} />}
-                  {isMyr && (
-                    <span className="ml-auto text-[10px] text-blue-500 dark:text-blue-400 font-normal">
-                      {active ? t('analyst.chart.close') : t('analyst.chart.open')}
-                    </span>
-                  )}
-                </div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
-                  {item.value}
-                  {item.unit && <span className="text-xs text-slate-400 font-normal ml-1">{item.unit}</span>}
-                </div>
-                <div className="mt-2"><TrendChip change={item.change} trend={item.trend} /></div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 leading-snug">{item.sub}</div>
-                {item.source && (
-                  <div className="mt-2"><SourceTag label={item.source.label} href={item.source.href} /></div>
-                )}
-              </div>
-            );
-          })}
+                {t(`analyst.fx.range.${r}`)}
+              </button>
+            ))}
+          </div>
         </div>
-
-        {myrExpanded && (
-          <div className="mt-4 bg-slate-100 dark:bg-slate-800/60 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-900 dark:text-white">{t('analyst.myr.title')}</div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{t('analyst.myr.sub')}</div>
+        {macro === null ? (
+          <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-400 dark:text-slate-500">
+            <RefreshCw size={14} className="animate-spin" />
+            {t('analyst.fx.loading')}
+          </div>
+        ) : !fx ? (
+          <div className="flex items-center justify-center py-6 text-sm text-slate-400 dark:text-slate-500">
+            {t('analyst.error')}
+          </div>
+        ) : (
+            {[
+              { label: t('analyst.fx.majors'), rows: fx.majors ?? [] },
+              { label: t('analyst.fx.sea'),    rows: fx.sea ?? [] },
+            ].map(section => (
+              <div key={section.label}>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  {section.label}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {section.rows.map(c => {
+                    const s = fxNow[c.code] ?? {};
+                    const spark = s.spark ?? [];
+                    return (
+                      <div
+                        key={c.code}
+                        className={`rounded-xl p-3.5 bg-slate-100 dark:bg-slate-700/50 ${
+                          c.code === 'USD' ? 'ring-1 ring-blue-400/50 dark:ring-blue-500/40' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-base">{c.flag}</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">{c.code}</span>
+                          </div>
+                          {s.change_pct != null && <TrendChip change={pct(s.change_pct)} trend={s.trend} />}
+                        </div>
+                        <div className="font-mono text-xl font-bold leading-tight text-slate-900 dark:text-white">
+                          <span className="mr-1 font-sans text-xs font-normal text-slate-400">RM</span>
+                          {fmtRate(c.myr)}
+                        </div>
+                        <div className="mt-0.5 truncate text-[11px] text-slate-400 dark:text-slate-500">
+                          {c.name}{c.code === 'USD' && ' · MYR/USD'}
+                        </div>
+                        <div className="-mx-1 mt-2 h-10">
+                          {spark.length > 1 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={spark} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
+                                <YAxis hide domain={['dataMin', 'dataMax']} />
+                                <Tooltip content={<FxSparkTooltip />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} />
+                                <Line
+                                  type="monotone"
+                                  dataKey="myr"
+                                  stroke={s.trend === 'down' ? '#f43f5e' : '#10b981'}
+                                  strokeWidth={1.5}
+                                  dot={false}
+                                  activeDot={{ r: 3, strokeWidth: 0 }}
+                                  isAnimationActive={false}
+                                />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-[10px] text-slate-300 dark:text-slate-600">
+                              {fxLoading ? '…' : t('analyst.fx.nochart')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {[30, 90, 180, 365].map(d => (
-                  <button
-                    key={d}
-                    onClick={() => setMyrDays(d)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      myrDays === d
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-600'
-                    }`}
-                  >
-                    {d === 365 ? '1T' : `${d}H`}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setMyrExpanded(false)}
-                  className="ml-1 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 dark:hover:text-white dark:hover:bg-slate-700 transition-colors"
-                >
-                  <X size={14} />
-                </button>
-              </div>
+            ))}
+            <div className="text-[10px] text-slate-400 dark:text-slate-500">
+              {t('analyst.fx.note', { range: t(`analyst.fx.range.${fxRange}`).toLowerCase() })}
             </div>
-
-            {myrLoading ? (
-              <div className="h-48 flex items-center justify-center gap-2 text-slate-400 dark:text-slate-500 text-sm">
-                <RefreshCw size={14} className="animate-spin" />
-                {t('analyst.loading')}
-              </div>
-            ) : myrHistory.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">
-                {t('analyst.error')}
-              </div>
-            ) : (
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={myrHistory} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} vertical={false} />
-                    <XAxis dataKey="date" tick={{ fill: chartTick, fontSize: 10 }} axisLine={{ stroke: chartGrid }} tickLine={false} interval="preserveStartEnd" />
-                    <YAxis domain={['auto', 'auto']} tickFormatter={v => v.toFixed(2)} tick={{ fill: chartTick, fontSize: 10 }} axisLine={false} tickLine={false} width={44} />
-                    <Tooltip content={<MyrTooltip />} />
-                    <Line type="monotone" dataKey="value" stroke="#60a5fa" strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
           </div>
         )}
       </Card>
