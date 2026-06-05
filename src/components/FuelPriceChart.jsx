@@ -147,7 +147,7 @@ export default function FuelPriceChart() {
 
   return (
     <Card>
-      <div className="flex items-start justify-between gap-4 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
         <SectionTitle
           icon={TrendingUp}
           iconBg="bg-blue-950"
@@ -172,7 +172,7 @@ export default function FuelPriceChart() {
         </div>
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4">
         {CATEGORIES.map(cat => (
           <button
             key={cat.id}
