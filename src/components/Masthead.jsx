@@ -31,7 +31,7 @@ export default function Masthead() {
         </button>
 
         {/* Smooth collapse via grid-rows 0fr→1fr (no height measuring needed) */}
-        <div className={`grid transition-all duration-300 ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+        <div id="myds-masthead-panel" aria-hidden={!open} className={`grid transition-all duration-300 ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
           <div className="overflow-hidden">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 pt-4 pb-6">
               <span className="text-blue-600 dark:text-blue-400 sm:hidden">{t('masthead.identify')}</span>
