@@ -12,9 +12,11 @@ export default function Masthead() {
     <div className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs sm:text-sm">
       <div className="max-w-7xl mx-auto px-4.5 md:px-6">
         <button
+          type="button"
           onClick={() => setOpen(o => !o)}
           className="w-full py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
           aria-expanded={open}
+          aria-controls="myds-masthead-panel"
         >
           <div className="flex flex-wrap items-center gap-1.5 text-blue-600 dark:text-blue-400 max-sm:justify-between">
             <div className="flex items-center gap-1.5">
