@@ -9,7 +9,8 @@ import RakyatPage from './pages/RakyatPage';
 import SMEPage from './pages/SMEPage';
 import AnalystPage from './pages/AnalystPage';
 import MethodologyPage from './pages/MethodologyPage';
-import SourceTag from './components/SourceTag';
+import Masthead from './components/Masthead';
+import Footer from './components/Footer';
 
 const PERSONA_KEYS = [
   { id: 'rakyat',      icon: User      },
@@ -28,7 +29,6 @@ export default function PantauKrisisDashboard() {
   const [macro, setMacro] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fuelSource, setFuelSource] = useState('mock');
-  const [backendUp, setBackendUp] = useState(null);
 
   useEffect(() => {
     const tryInOrder = (...fetchers) =>
@@ -52,7 +52,10 @@ export default function PantauKrisisDashboard() {
       .then(fuelData => {
         setFuel(mapFuelResponse(fuelData));
         setFuelSource(fuelData._source);
-        setLastUpdated(fuelData.fetched_at ?? fuelData.snapshot_at ?? fuelData.date);
+        // Show when the data was last refreshed (its recency), not the weekly
+        // price's effective date. DOSM live rows carry no timestamp, so a fresh
+        // live fetch is stamped with "now".
+        setLastUpdated(fuelData.fetched_at ?? fuelData.snapshot_at ?? new Date().toISOString());
       })
       .catch(err => console.warn('Fuel unavailable, using mock data:', err))
       .finally(() => setLoading(false));
@@ -60,11 +63,6 @@ export default function PantauKrisisDashboard() {
     fetchCommodities()
       .then(data => { if (data.length > 0) setCommodities(mapCommoditiesResponse(data)); })
       .catch(err => console.warn('Commodities unavailable, using mock data:', err));
-
-    // Probe the backend independently so the header can flag when it is down.
-    fetchFuelLatest()
-      .then(() => setBackendUp(true))
-      .catch(() => setBackendUp(false));
 
     fetchMacro()
       .then(data => { if (data) setMacro(data); })
@@ -75,8 +73,10 @@ export default function PantauKrisisDashboard() {
     <DataContext.Provider value={{ fuel, commodities, lastUpdated, macro }}>
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-sans antialiased">
 
-        <header className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4">
-          <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <Masthead />
+
+        <header className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4.5 md:px-6 py-4">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
             <div className="flex items-center gap-3">
               <div className="bg-blue-600 p-2 rounded-xl shrink-0">
                 <Activity size={20} className="text-white" />
@@ -92,7 +92,7 @@ export default function PantauKrisisDashboard() {
               <div className="flex flex-col items-end gap-0.5 text-xs shrink-0">
                 <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
                   <RefreshCw size={11} className={loading ? 'animate-spin text-slate-400 dark:text-slate-500' : 'text-emerald-500 dark:text-emerald-400'} />
-                  <span className="text-slate-500 dark:text-slate-300" title={t(`status.source.${fuelSource}`)}>
+                  <span className="text-slate-500 dark:text-slate-300">
                     {lastUpdated ? (() => {
                       const d = new Date(lastUpdated);
                       return Number.isNaN(d.getTime()) ? lastUpdated : d.toLocaleString('ms-MY', {
@@ -102,12 +102,9 @@ export default function PantauKrisisDashboard() {
                     })() : '—'}
                   </span>
                 </div>
-                {backendUp === false && (
-                  <span className="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    {t('status.backendDown')} · {t(`status.source.${fuelSource}`)}
-                  </span>
-                )}
+                <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                  {t(`status.source.${fuelSource}`)}
+                </span>
               </div>
               {/* Language toggle */}
               <button
@@ -131,9 +128,9 @@ export default function PantauKrisisDashboard() {
           </div>
         </header>
 
-        <div className="sticky top-0 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3">
-          <div className="max-w-5xl mx-auto">
-            <div className="flex gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="sticky top-0 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4.5 md:px-6 py-3">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex gap-2 overflow-x-auto -mx-4.5 px-4.5 sm:mx-0 sm:px-0">
               {PERSONA_KEYS.map(p => {
                 const Icon = p.icon;
                 const active = activePersona === p.id;
@@ -165,32 +162,14 @@ export default function PantauKrisisDashboard() {
           </div>
         </div>
 
-        <main className="max-w-5xl mx-auto px-4 py-6">
+        <main className="max-w-7xl mx-auto px-4.5 md:px-6 py-6">
           {activePersona === 'rakyat'       && <RakyatPage />}
           {activePersona === 'perniagaan'   && <SMEPage />}
           {activePersona === 'penganalisis' && <AnalystPage />}
           {activePersona === 'metodologi'   && <MethodologyPage />}
         </main>
 
-        <footer className="border-t border-slate-200 dark:border-slate-800 px-4 py-6 mt-4">
-          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400 dark:text-slate-500">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span>{t('footer.sources')}</span>
-              <SourceTag label="Petronas" href="https://www.petronas.com" />
-              <SourceTag label="Bank Negara" href="https://www.bnm.gov.my" />
-              <SourceTag label="DOSM" href="https://data.gov.my" />
-              <SourceTag label="KPDNHEP" href="https://www.kpdn.gov.my" />
-              <SourceTag label="Drewry WCI" href="https://www.drewry.co.uk/supply-chain-advisors/supply-chain-expertise/world-container-index-assessed-by-drewry" />
-            </div>
-            <div className="flex items-center gap-3">
-              <span>{t('footer.copyright')}</span>
-              <span className="text-slate-300 dark:text-slate-700">|</span>
-              <span className="hover:text-blue-500 dark:hover:text-blue-400 cursor-pointer transition-colors">{t('footer.about')}</span>
-              <span className="text-slate-300 dark:text-slate-700">|</span>
-              <span className="hover:text-blue-500 dark:hover:text-blue-400 cursor-pointer transition-colors">{t('footer.api')}</span>
-            </div>
-          </div>
-        </footer>
+        <Footer />
 
       </div>
     </DataContext.Provider>

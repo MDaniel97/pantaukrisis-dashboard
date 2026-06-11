@@ -127,8 +127,9 @@ export default function FuelPriceChart() {
   const CATEGORIES = CATEGORY_DEFS(t);
   const category = CATEGORIES.find(c => c.id === categoryId);
 
-  const chartGrid = isDark ? '#334155' : '#e2e8f0';
-  const chartTick = isDark ? '#94a3b8' : '#64748b';
+  // MYDS gray: grid → 700/200, ticks → 400/500
+  const chartGrid = isDark ? '#3F3F46' : '#E4E4E7';
+  const chartTick = isDark ? '#A1A1AA' : '#6B6B74';
 
   useEffect(() => {
     setLoading(true);
