@@ -43,8 +43,8 @@ export default function Footer() {
             <div className="space-y-3">
               <p className="font-semibold text-sm text-slate-900 dark:text-white">{t('footer.links.title')}</p>
               <div className="flex flex-col gap-2 text-sm">
-                <span className="text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">{t('footer.about')}</span>
-                <span className="text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">{t('footer.api')}</span>
+                <span className="text-slate-500 dark:text-slate-400">{t('footer.about')}</span>
+                <span className="text-slate-500 dark:text-slate-400">{t('footer.api')}</span>
               </div>
             </div>
 
