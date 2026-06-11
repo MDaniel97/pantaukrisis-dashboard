@@ -1,12 +1,25 @@
 export const translations = {
   bm: {
+    // Masthead (official government banner)
+    'masthead.official':       'Portal Rasmi Kerajaan Malaysia',
+    'masthead.identify':       'Kenal pasti begini',
+    'masthead.gov.title':      'Pautan portal rasmi berakhir dengan .gov.my',
+    'masthead.gov.pre':        'Sekiranya anda melihat pautan selain ',
+    'masthead.gov.post':       ', segera tutupkan halaman itu walaupun ia menyerupai portal rasmi!',
+    'masthead.secure.title':   'Portal yang selamat menggunakan HTTPS',
+    'masthead.secure.pre':     'Periksa ikon loker (',
+    'masthead.secure.mid':     ') atau ',
+    'masthead.secure.post':    ' di depan pautan. Sekiranya tiada, jangan kongsikan sebarang maklumat sensitif.',
+
     // Header & Footer
     'app.tagline':        'Pemantauan Bekalan & Harga Semasa Malaysia',
+    'footer.ministry':    'Kementerian Digital',
+    'footer.address':     'Aras 13-18, Menara Usahawan\nNo. 18, Persiaran Perdana, Presint 2\n62000 Putrajaya, Malaysia',
+    'footer.links.title': 'Pautan',
     'status.source.dosm':     'Sumber: DOSM langsung',
     'status.source.snapshot': 'Sumber: snapshot terkini',
     'status.source.backend':  'Sumber: backend',
     'status.source.mock':     'Sumber: data sandaran',
-    'status.backendDown':     'Backend tidak aktif',
     'footer.sources':     'Sumber data:',
     'footer.copyright':   '© 2026 Kementerian Digital',
     'footer.about':       'Tentang PantauKrisis',
@@ -188,13 +201,26 @@ export const translations = {
   },
 
   en: {
+    // Masthead (official government banner)
+    'masthead.official':       'Official Malaysia Government Website',
+    'masthead.identify':       "Here's how you know",
+    'masthead.gov.title':      'Official government websites end with .gov.my',
+    'masthead.gov.pre':        'If you see a link other than ',
+    'masthead.gov.post':       ', close it immediately even if it looks similar to an official portal!',
+    'masthead.secure.title':   'Secure websites use HTTPS',
+    'masthead.secure.pre':     'Look for a lock (',
+    'masthead.secure.mid':     ') or ',
+    'masthead.secure.post':    ' before the link as an added precaution. If absent, do not share any sensitive information.',
+
     // Header & Footer
     'app.tagline':        'Malaysia Supply & Current Price Monitor',
+    'footer.ministry':    'Ministry of Digital',
+    'footer.address':     'Level 13-18, Menara Usahawan\nNo. 18, Persiaran Perdana, Presint 2\n62000 Putrajaya, Malaysia',
+    'footer.links.title': 'Links',
     'status.source.dosm':     'Source: DOSM live',
     'status.source.snapshot': 'Source: latest snapshot',
     'status.source.backend':  'Source: backend',
     'status.source.mock':     'Source: fallback data',
-    'status.backendDown':     'Backend down',
     'footer.sources':     'Data sources:',
     'footer.copyright':   '© 2026 Ministry of Digital',
     'footer.about':       'About PantauKrisis',
